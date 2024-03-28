@@ -1,5 +1,70 @@
 #include "ssu_header.h"
 
+void print_tree(int height, char *isLastDir){
+    struct dirent **namelist;
+    int i, count, lastIdx;
+    struct stat statbuf;
+    
+    //scandir 실패시 return
+    if((count = scandir(".", &namelist, NULL, alphasort)) == -1){
+        return;
+    }
+
+    //뒤에서부터 찾으면서 마지막 인덱스 확인하기
+    for(i = count -1; i >= 0; i--){
+        if(!strcmp(".", namelist[i]->d_name) || !strcmp("..", namelist[i]->d_name))
+            continue;
+
+        lastIdx = i;   
+        break;
+    }
+
+    //디렉토리 탐색하면서
+    for(i = 0; i < count; i++){
+        //. 혹은 ..이면 free후 넘기기
+        if(!strcmp(".", namelist[i]->d_name) || !strcmp("..", namelist[i]->d_name)){
+            free(namelist[i]);
+            continue;
+        }
+
+        //해당 디렉토리 검사 실패시 넘기기
+        if(stat(namelist[i]->d_name, &statbuf) < 0){
+            free(namelist[i]);
+            continue;
+        }
+
+        //한단계씩 계쏙 들어가면서 해당 깊이의 마지막 원소였는지확인
+        for(int i = 0; i < height; i++){
+            if(isLastDir[i] == 0)   //마지막 원소가 아니었다면 잇기
+                printf("│");
+            else
+                printf(" ");    //아니라면 공백
+            printf("   ");
+        }
+
+        //만약 이번 인덱스가 마지막 인덱스가 아니라면
+        if(i != lastIdx){
+            printf("├─ %s\n", namelist[i]->d_name); //밑에 자식 잇기
+            isLastDir[height] = 0;  //현재 깊이에서는 마지막 자식이 아니라고 표시
+        }
+        else{
+            printf("└─ %s\n", namelist[i]->d_name); //맡에 자식 잇지않기
+            isLastDir[height] = 1;  //현재 깊이에서는 마지막 자식이라고 표시
+        }
+
+        if(S_ISDIR(statbuf.st_mode)){   //현재 찾은 자식이 디렉토리라면
+            chdir(namelist[i]->d_name); //해당 디렉토리로 작업디렉토리 이동 후
+            print_tree(height+1, isLastDir);  //재귀적으로 print_tree 출력 후(깊이 1 증가)
+            chdir("..");    //다시 돌아오기
+        }
+
+        free(namelist[i]); //현재 자식 free시키기
+    }
+
+    //현재 디렉토리를 모두 출력했다면 namelist free
+    free(namelist);
+}
+
 timeList *Gettime_list(){//경로 받기 log 보고 해당 경로와 관련있는 backup 속 dir 찾기
   struct stat statbuf;
   timeList *head=(timeList *)malloc(sizeof(timeList));
@@ -1444,6 +1509,7 @@ void Init() {
 
 int main(int argc, char* argv[]) {
   Init();
+  static char buf[STRMAX];
   if(!strcmp(argv[0], "command")) {
       hash = atoi(argv[1]);
       
@@ -1456,7 +1522,8 @@ int main(int argc, char* argv[]) {
       return -1;
     }
   }
-  
+  printf("%s\n", getcwd(buf,STRMAX));
+  print_tree(0,buf );
   strcpy(exeNAME, argv[0]);
   // if(strcmp(argv[1], "md5") && strcmp(argv[1], "sha1")) {
   //   fprintf(stderr, "input error: wrong hash <md5 | sha1>\n");
