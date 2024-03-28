@@ -745,6 +745,7 @@ int BackupFile(char *path, char *date) {
     if(path[i]=='/')dirrm=&path[i+1];
   }
   sprintf(newPath, "%s/%s", dirback, dirrm);//대강 백업 dirrm+strlen(homePATH) 여기서 뒤에꺼 뺐음...
+
   if((fd1 = open(path, O_RDONLY)) < 0) {
 		fprintf(stderr,"ERROR: open error for %s\n",path);
 		return 1;
@@ -847,14 +848,14 @@ int AddCommand(command_parameter *parameter) {
     return -1;
   }
 
-  strcpy(tmpPath, "");
-  for(i = 0; i < backupPathDepth-1; i++) {
-    strcat(tmpPath, "/");
-    strcat(tmpPath, backupPathList[i]);
-
-    if(access(tmpPath, F_OK))
-      mkdir(tmpPath, 0777);
-  }
+  //strcpy(tmpPath, "");
+  // for(i = 0; i < backupPathDepth-1; i++) {
+  //   strcat(tmpPath, "/");
+  //   strcat(tmpPath, backupPathList[i]);
+  //   printf("%s\n", tmpPath);
+  //   if(access(tmpPath, F_OK))
+  //     mkdir(tmpPath, 0777);
+  // }dir in backup @@@@@
   
   if(S_ISREG(statbuf.st_mode)) {
     BackupFile(originPath, getDate());
@@ -1202,7 +1203,7 @@ int Prompt(int argcnt, char *arglist[]) {
     if(argcnt-1) help_opt(arglist[1]);
     else help();
     return 0;
-  }else {
+  }else if(atoi(arglist[0])-hash){
     command = NOT_CMD;
   }
 
@@ -1222,7 +1223,7 @@ int Prompt(int argcnt, char *arglist[]) {
     return -1;
   }
   //}
-}
+} 
 void Init() {
   
   backuplist=(timeList *)malloc(sizeof(timeList));
@@ -1251,7 +1252,7 @@ int main(int argc, char* argv[]) {
   Init();
   if(!strcmp(argv[0], "command")) {
       hash = atoi(argv[1]);
-
+      
       CommandFun(argv+2);
     } else if(!strcmp(argv[0], "help")) {
       help();
@@ -1263,7 +1264,6 @@ int main(int argc, char* argv[]) {
   }
   
   strcpy(exeNAME, argv[0]);
-
   // if(strcmp(argv[1], "md5") && strcmp(argv[1], "sha1")) {
   //   fprintf(stderr, "input error: wrong hash <md5 | sha1>\n");
   //   return -1;
