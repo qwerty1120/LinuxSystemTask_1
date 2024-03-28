@@ -456,9 +456,12 @@ int RecoverCommand(command_parameter *parameter) {
 int RemoveFile(char* path) {
   fileNode *head = (fileNode *)malloc(sizeof(fileNode));
   fileNode *curr = head;
+  timeList *logcurr = backuplist;
 	struct stat statbuf, tmpbuf;
   char *originPath = (char *)malloc(sizeof(char *) * PATHMAX);
   char *filepath = (char *)malloc(sizeof(char *) * PATHMAX);
+  char *backuppath = (char *)malloc(sizeof(char *) * PATHMAX);
+  char *file_backuppath = (char *)malloc(sizeof(char *) * PATHMAX);
   char *filename = (char *)malloc(sizeof(char *) * PATHMAX);
   char *tmpPath = (char *)malloc(sizeof(char *) * PATHMAX);
   char *date = (char *)malloc(sizeof(char *) * PATHMAX);
@@ -468,67 +471,102 @@ int RemoveFile(char* path) {
   int i;
   char input[STRMAX];
   int num;
+//need
 
   sprintf(originPath, "%s%s", homePATH, path+strlen(backupPATH));
-
   strcpy(filepath, path);
   for(idx = strlen(filepath)-1; filepath[idx] != '/'; idx--);
   strcpy(filename, filepath+idx+1);
   filepath[idx] = '\0';
+  
+  sprintf(backuppath, "%s/backup", homePATH);
+  // if((cnt = scandir(filepath, &namelist, NULL, alphasort)) == -1) {
+	// 	fprintf(stderr, "ERROR: scandir error for %s\n", filepath);
+	// 	return 1;
+  // }
+  if(logcurr->next!=NULL){
+    while(1){
+      logcurr=logcurr->next;
+      if(!strcmp(logcurr->path,originPath)){
+        strcpy(tmpPath, logcurr->backuppath);
+        tmpPath[strlen(logcurr->backuppath)]=0;
 
-  if (lstat(filepath, &statbuf) < 0) {
-    fprintf(stderr, "Usage : remove <FILENAME> [OPTION]\n");
-    return 1;
-  }
-
-  if((cnt = scandir(filepath, &namelist, NULL, alphasort)) == -1) {
-		fprintf(stderr, "ERROR: scandir error for %s\n", filepath);
-		return 1;
-  }
-
-  for(i = 0; i < cnt; i++) {
-    if(!strcmp(namelist[i]->d_name, ".") || !strcmp(namelist[i]->d_name, "..")) continue;
-
-    sprintf(tmpPath, "%s/%s", filepath, namelist[i]->d_name);
-
-    if (lstat(tmpPath, &tmpbuf) < 0) {
-      fprintf(stderr, "ERROR: lstat error for %s\n", tmpPath);
-      return 1;
-    }
-
-    if(S_ISREG(tmpbuf.st_mode)) {
-      strcpy(tmpPath, namelist[i]->d_name);
-      tmpPath[strlen(tmpPath) - 13] = '\0';
-      if(strcmp(tmpPath, filename)) continue;
-
-      fileNode *new = (fileNode *)malloc(sizeof(fileNode));
-      sprintf(new->path, "%s/%s", filepath, namelist[i]->d_name);
-      new->statbuf = tmpbuf;
-      curr->next = new;
-      curr = curr->next;
+        if (lstat(tmpPath, &tmpbuf) < 0) {
+          fprintf(stderr, "ERROR: lstat error for %s\n", tmpPath);
+          return 1;
+        }
+        fileNode *new = (fileNode *)malloc(sizeof(fileNode));
+        strcpy(new->path,logcurr->backuppath);
+        new->statbuf = tmpbuf;
+        curr->next = new;
+        curr = curr->next;
+      }
+      if(logcurr->next==NULL)break;
     }
   }
+  else {printf("backup dir is empty.");return 0;}
+  // if (lstat(filepath, &statbuf) < 0) {
+  //   fprintf(stderr, "Usage : remove <FILENAME> [OPTION]\n");
+  //   return 1;
+  // }
+
+  // for(i = 0; i < cnt; i++) {
+  //   if(!strcmp(namelist[i]->d_name, ".") || !strcmp(namelist[i]->d_name, "..")) continue;
+
+  //   sprintf(tmpPath, "%s/%s", filepath, namelist[i]->d_name);
+  //   printf("%s\n", tmpPath);
+  //   if (lstat(tmpPath, &tmpbuf) < 0) {
+  //     fprintf(stderr, "ERROR: lstat error for %s\n", tmpPath);
+  //     return 1;
+  //   }
+
+  //   if(S_ISREG(tmpbuf.st_mode)) {
+  //     strcpy(tmpPath, namelist[i]->d_name);
+  //     tmpPath[strlen(tmpPath) - 13] = '\0';
+  //     if(strcmp(tmpPath, filename)) continue;
+
+  //     fileNode *new = (fileNode *)malloc(sizeof(fileNode));
+  //     sprintf(new->path, "%s/%s", filepath, namelist[i]->d_name);
+  //     new->statbuf = tmpbuf;
+  //     curr->next = new;
+  //     curr = curr->next;
+  //   }
+  // }
 
   if(head->next == NULL) {
     printf("no backup file(s) of \"%s\"\n", originPath);
     return 1;
   } else if(head->next->next == NULL) {
+
+    strcpy(file_backuppath,head->next->path);
+    file_backuppath[strlen(head->next->path)-strlen(filename)-1]=0;//dir 이름
+
     if(remove(head->next->path)) {
       fprintf(stderr, "ERROR: remove error for %s", head->next->path);
     }
 
-    printf("\"%s\" removed by \n", head->next->path);
+    //dir에 남은 파일이 없으면 dir도 삭제
+    if((cnt = scandir(file_backuppath, &namelist, NULL, alphasort)) == -1) {
+      fprintf(stderr, "ERROR: scandir error for %s\n", filepath);
+      return 1;
+    }
+    if(cnt<3) remove(file_backuppath);
+    strcpy(date, head->next->path + (strlen(backuppath))+1);
+    date[strlen(date)-strlen(filename)-1]=0;
+    printf("%s : \"%s\" removed by \"%s\"\n",date, head->next->path, originPath);//이거 log에도 써야함
+//연결리스트에서 빼는거 까먹었다링
     free(head);
   } else {
     printf("backup files of \"%s\"\n", originPath);
     printf("0. exit\n");
     curr = head->next;
     for(i = 1; curr != NULL; curr = curr->next) {
-      strcpy(date, curr->path + (strlen(curr->path) - 12));
+      strcpy(date, curr->path + (strlen(backuppath))+1);
+      date[strlen(date)-strlen(filename)-1]=0;
       printf("%d. %s\t%sbytes\n", i, date, cvtNumComma(curr->statbuf.st_size));
       i++;
     }
-    printf("Choose file to recover\n");
+    printf("Choose file to remove\n");
     
     while(true) {
       printf(">> ");
@@ -546,11 +584,23 @@ int RemoveFile(char* path) {
       curr = head->next;
       for(i = 1; curr != NULL; curr = curr->next) {
         if(i == num) {
+          strcpy(file_backuppath,curr->path);
+          file_backuppath[strlen(curr->path)-strlen(filename)-1]=0;
+
           if(remove(curr->path)) {
             fprintf(stderr, "ERROR: remove error for %s", curr->path);
           }
+          //dir에 남은 파일이 없으면 dir도 삭제
+          if((cnt = scandir(file_backuppath, &namelist, NULL, alphasort)) == -1) {
+            fprintf(stderr, "ERROR: scandir error for %s\n", filepath);
+            return 1;
+          }
+          if(cnt<3) remove(file_backuppath);
+          strcpy(date, curr->path + (strlen(backuppath))+1);
+          date[strlen(date)-strlen(filename)-1]=0;
 
-          printf("\"%s\" backup file removed\n", curr->path);
+          printf("%s : \"%s\" removed by \"%s\"\n",date, curr->path, originPath);//log써야함
+          //연결리스트에서 빼는것도 잊지말고
           free(curr);
           break;
         }
@@ -1272,9 +1322,9 @@ int main(int argc, char* argv[]) {
  // if(!strcmp(argv[1], "md5")) {
     hash = HASH_MD5;
  // }
-  if(!strcmp(argv[1], "sha1")) {
-    hash = HASH_SHA1;
-  }
+  // if(!strcmp(argv[1], "sha1")) {
+  //   hash = HASH_SHA1;
+  // }
   
   Prompt(argc-1,argv+1);
 
