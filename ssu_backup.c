@@ -51,7 +51,7 @@ timeList *Gettime_list(){//경로 받기 log 보고 해당 경로와 관련있�
       path=0;
       i++;
       if(buf[i+1]=='r')rech=1;//아마 여기 중간에 backup인지 remove인지 체크->DONE
-      
+
       while(buf[i++]!='\"');
       while(buf[i]!='\"'){
         backpath[path++]=buf[i++];
@@ -60,7 +60,7 @@ timeList *Gettime_list(){//경로 받기 log 보고 해당 경로와 관련있�
       numch=1;i--;
       if(!rech){
       timeList *new=(timeList *)malloc(sizeof(timeList));
-      
+      new->next=NULL;
       strcpy(new->dirtime,number);
       strcpy(new->path,listpath);
       strcpy(new->backuppath,backpath);
@@ -69,23 +69,42 @@ timeList *Gettime_list(){//경로 받기 log 보고 해당 경로와 관련있�
       curr=curr->next;
       curr->next=NULL;
       }
-      else {
+      else {//@@@@@ recover remove일때 리스트에서 빼는거 안했다리
         curr=head;
         while(1){
-          if(!strcmp(curr->dirtime,number)&&!strcmp(curr->path,listpath)&&!strcmp(curr->backuppath,backpath)){
-            curr->prev->next=curr->next;
-            curr->next->prev=curr->prev;
+          curr=curr->next;
+          if(!strcmp(curr->dirtime,number)&&!strcmp(curr->backuppath,listpath)&&!strcmp(curr->path,backpath)){
+            if(curr->prev==NULL&&curr->next==NULL){curr=head;curr->next=NULL;}
+            else if(curr->prev==NULL){head->next=curr->next;curr=head;}
+            else if(curr->next==NULL){curr=curr->prev;curr->next=NULL;}
+            else {
+              curr->next->prev=curr->prev;
+              curr->prev->next=curr->next;
+            }
+            //free(curr);
+            rech=0;
+            break;
           }
           if(curr->next==NULL)break;
         }
+        curr=head;
+        while(curr->next!=NULL){
+          curr=curr->next;
+        }
       }
     }
-  }
+  }//curr=head;
+  // while(1){
+  //   curr=curr->next;
+  //   printf("%s\n", curr->path);
+  //   if(curr->next==NULL)break;//remove만 있으면 안돌아가네 ㅇㅅㅇ
+  // }
   return head;
 }
 int RecoverFile(char *originPath, char *backupPath, char *newPath) {
   fileNode *head = (fileNode *)malloc(sizeof(fileNode));
   fileNode *curr = head;
+  timeList *logcurr = backuplist;
   struct dirent **namelist;
   struct stat tmpbuf;
   char *tmpPath = (char *)malloc(sizeof(char *) * PATHMAX);
@@ -93,6 +112,8 @@ int RecoverFile(char *originPath, char *backupPath, char *newPath) {
   char *filename = (char *)malloc(sizeof(char *) * NAMEMAX);
   char *input = (char *)malloc(sizeof(char *) * STRMAX);
   char *date = (char *)malloc(sizeof(char *) * STRMAX);
+  char *logpath = (char *)malloc(sizeof(char *) * PATHMAX);
+  char *file_backuppath = (char *)malloc(sizeof(char *) * STRMAX);
   int fd1, fd2;
   char *buf = (char *)malloc(sizeof(char *) * STRMAX);
   int i;
@@ -100,39 +121,90 @@ int RecoverFile(char *originPath, char *backupPath, char *newPath) {
   int cnt;
   int num;
   int len;
-  
-  strcpy(filepath, backupPath);
-  for(idx = strlen(filepath)-1; filepath[idx] != '/'; idx--);
+  int log_fd;
 
+  strcpy(filepath, originPath);
+  for(idx = strlen(filepath)-1; filepath[idx] != '/'; idx--);
   strcpy(filename, filepath+idx+1);
   filepath[idx] = '\0';
-  if((cnt = scandir(filepath, &namelist, NULL, alphasort)) == -1) {
-		fprintf(stderr, "ERROR: scandir error for %s\n", filepath);
-		return 1;
-  }
 
-  for(i = 0; i < cnt; i++) {
-    if(!strcmp(namelist[i]->d_name, ".") || !strcmp(namelist[i]->d_name, "..")) continue;
+  if(logcurr->next!=NULL){
+    while(1){
+      logcurr=logcurr->next;
+      if(!strcmp(logcurr->path,originPath)){
+        strcpy(tmpPath, logcurr->backuppath);
+        tmpPath[strlen(logcurr->backuppath)]=0;
 
-    sprintf(tmpPath, "%s/%s", filepath, namelist[i]->d_name);
-
-    if (lstat(tmpPath, &tmpbuf) < 0) {
-      fprintf(stderr, "ERROR: lstat error for %s\n", tmpPath);
-      return 1;
-    }
-
-    if(S_ISREG(tmpbuf.st_mode)) {
-      strcpy(tmpPath, namelist[i]->d_name);
-      tmpPath[strlen(tmpPath) - 13] = '\0';
-      if(strcmp(tmpPath, filename)) continue;
-
-      fileNode *new = (fileNode *)malloc(sizeof(fileNode));
-      sprintf(new->path, "%s/%s", filepath, namelist[i]->d_name);
-      new->statbuf = tmpbuf;
-      curr->next = new;
-      curr = curr->next;
+        if (lstat(tmpPath, &tmpbuf) < 0) {
+          fprintf(stderr, "ERROR: lstat error for %s\n", tmpPath);
+          return 1;
+        }
+        fileNode *new = (fileNode *)malloc(sizeof(fileNode));
+        strcpy(new->path,logcurr->backuppath);
+        new->statbuf = tmpbuf;
+        curr->next = new;
+        curr = curr->next;
+      }
+      if(logcurr->next==NULL)break;
     }
   }
+  else {printf("backup dir is empty.");return 0;}
+  // sprintf(backuppath, "%s/backup", homePATH);
+
+  // if(logcurr->next!=NULL){
+  //   while(1){
+  //     logcurr=logcurr->next;
+  //     if(!strcmp(logcurr->path,originPath)){
+  //       strcpy(tmpPath, logcurr->backuppath);
+  //       tmpPath[strlen(logcurr->backuppath)]=0;
+
+  //       if (lstat(tmpPath, &tmpbuf) < 0) {
+  //         fprintf(stderr, "ERROR: lstat error for %s\n", tmpPath);
+  //         return 1;
+  //       }
+  //       fileNode *new = (fileNode *)malloc(sizeof(fileNode));
+  //       strcpy(new->path,logcurr->backuppath);
+  //       new->statbuf = tmpbuf;
+  //       curr->next = new;
+  //       curr = curr->next;
+  //     }
+  //     if(logcurr->next==NULL)break;
+  //   }
+  // }
+  // else {printf("backup dir is empty.");return 0;}
+
+  // strcpy(filepath, backupPath);
+  // for(idx = strlen(filepath)-1; filepath[idx] != '/'; idx--);
+
+  // strcpy(filename, filepath+idx+1);
+  // filepath[idx] = '\0';
+  // if((cnt = scandir(filepath, &namelist, NULL, alphasort)) == -1) {
+	// 	fprintf(stderr, "ERROR: scandir error for %s\n", filepath);
+	// 	return 1;
+  // }
+
+  // for(i = 0; i < cnt; i++) {
+  //   if(!strcmp(namelist[i]->d_name, ".") || !strcmp(namelist[i]->d_name, "..")) continue;
+
+  //   sprintf(tmpPath, "%s/%s", filepath, namelist[i]->d_name);
+
+  //   if (lstat(tmpPath, &tmpbuf) < 0) {
+  //     fprintf(stderr, "ERROR: lstat error for %s\n", tmpPath);
+  //     return 1;
+  //   }
+
+  //   if(S_ISREG(tmpbuf.st_mode)) {
+  //     strcpy(tmpPath, namelist[i]->d_name);
+  //     tmpPath[strlen(tmpPath) - 13] = '\0';
+  //     if(strcmp(tmpPath, filename)) continue;
+
+  //     fileNode *new = (fileNode *)malloc(sizeof(fileNode));
+  //     sprintf(new->path, "%s/%s", filepath, namelist[i]->d_name);
+  //     new->statbuf = tmpbuf;
+  //     curr->next = new;
+  //     curr = curr->next;
+  //   }
+  // }
 
   if(head->next == NULL) {
     printf("no backup file(s) of \"%s\"\n", originPath);
@@ -160,8 +232,31 @@ int RecoverFile(char *originPath, char *backupPath, char *newPath) {
     if(remove(head->next->path)) {
       fprintf(stderr, "ERROR: remove error for %s", head->next->path);
     }
+   
+    strcpy(date, head->next->path + strlen(backupPath)-strlen(filename));
+    date[strlen(date)-strlen(filename)-1]=0;
 
-    printf("\"%s\" backup recover to \"%s\"\n", head->next->path, newPath);
+    printf("\"%s\" recovered to \"%s\"\n", head->next->path, newPath);
+    sprintf(logpath, "%s : \"%s\" recovered to \"%s\"\n",date, head->next->path, newPath);
+    len=strlen(date)+strlen(head->next->path)+strlen(newPath)+22;
+    logpath[len]=0;
+  
+    if((log_fd = open("backup/ssubak.log", O_WRONLY|O_APPEND)) < 0) {//이어서 쓸 수 있게
+      fprintf(stderr,"ERROR: open error for backup/ssubak.log\n");
+      return 1;
+    }
+    write(log_fd, logpath,len);//작성 @@@ 에러 체크 필요
+    close(log_fd);
+
+    strcpy(file_backuppath,head->next->path);
+    file_backuppath[strlen(head->next->path)-strlen(filename)-1]=0;//dir 이름
+
+    if((cnt = scandir(file_backuppath, &namelist, NULL, alphasort)) == -1) {
+      fprintf(stderr, "ERROR: scandir error for %s\n", filepath);
+      return 1;
+    }
+    if(cnt<3) remove(file_backuppath);
+
     free(head);
   } else {
     printf("backup files of \"%s\"\n", originPath);
@@ -213,7 +308,29 @@ int RecoverFile(char *originPath, char *backupPath, char *newPath) {
             fprintf(stderr, "ERROR: remove error for %s", curr->path);
           }
 
-          printf("\"%s\" backup recover to \"%s\"\n", curr->path, newPath);
+          strcpy(date, curr->path + strlen(backupPath)-strlen(filename));
+          date[strlen(date)-strlen(filename)-1]=0;
+
+          printf("\"%s\" recovered to \"%s\"\n", curr->path, newPath);
+          sprintf(logpath, "%s : \"%s\" recovered to \"%s\"\n",date, curr->path, newPath);
+          len=strlen(date)+strlen(curr->path)+strlen(newPath)+22;
+          logpath[len]=0;
+        
+          if((log_fd = open("backup/ssubak.log", O_WRONLY|O_APPEND)) < 0) {//이어서 쓸 수 있게
+            fprintf(stderr,"ERROR: open error for backup/ssubak.log\n");
+            return 1;
+          }
+          write(log_fd, logpath,len);//작성 @@@ 에러 체크 필요
+          close(log_fd);
+
+          strcpy(file_backuppath,curr->path);
+          file_backuppath[strlen(curr->path)-strlen(filename)-1]=0;//dir 이름
+
+          if((cnt = scandir(file_backuppath, &namelist, NULL, alphasort)) == -1) {
+            fprintf(stderr, "ERROR: scandir error for %s\n", filepath);
+            return 1;
+          }
+          if(cnt<3) remove(file_backuppath);
           free(curr);
           break;
         }
@@ -456,9 +573,13 @@ int RecoverCommand(command_parameter *parameter) {
 int RemoveFile(char* path) {
   fileNode *head = (fileNode *)malloc(sizeof(fileNode));
   fileNode *curr = head;
+  timeList *logcurr = backuplist;
 	struct stat statbuf, tmpbuf;
   char *originPath = (char *)malloc(sizeof(char *) * PATHMAX);
   char *filepath = (char *)malloc(sizeof(char *) * PATHMAX);
+  char *logpath = (char *)malloc(sizeof(char *) * PATHMAX);
+  char *backuppath = (char *)malloc(sizeof(char *) * PATHMAX);
+  char *file_backuppath = (char *)malloc(sizeof(char *) * PATHMAX);
   char *filename = (char *)malloc(sizeof(char *) * PATHMAX);
   char *tmpPath = (char *)malloc(sizeof(char *) * PATHMAX);
   char *date = (char *)malloc(sizeof(char *) * PATHMAX);
@@ -466,69 +587,117 @@ int RemoveFile(char* path) {
   int cnt;
   int idx;
   int i;
+  int log_fd;
+  int len;
   char input[STRMAX];
   int num;
+//need
 
   sprintf(originPath, "%s%s", homePATH, path+strlen(backupPATH));
-
   strcpy(filepath, path);
   for(idx = strlen(filepath)-1; filepath[idx] != '/'; idx--);
   strcpy(filename, filepath+idx+1);
   filepath[idx] = '\0';
+  
+  sprintf(backuppath, "%s/backup", homePATH);
+  // if((cnt = scandir(filepath, &namelist, NULL, alphasort)) == -1) {
+	// 	fprintf(stderr, "ERROR: scandir error for %s\n", filepath);
+	// 	return 1;
+  // }
+  if(logcurr->next!=NULL){
+    while(1){
+      logcurr=logcurr->next;
+      if(!strcmp(logcurr->path,originPath)){
+        strcpy(tmpPath, logcurr->backuppath);
+        tmpPath[strlen(logcurr->backuppath)]=0;
 
-  if (lstat(filepath, &statbuf) < 0) {
-    fprintf(stderr, "Usage : remove <FILENAME> [OPTION]\n");
-    return 1;
-  }
-
-  if((cnt = scandir(filepath, &namelist, NULL, alphasort)) == -1) {
-		fprintf(stderr, "ERROR: scandir error for %s\n", filepath);
-		return 1;
-  }
-
-  for(i = 0; i < cnt; i++) {
-    if(!strcmp(namelist[i]->d_name, ".") || !strcmp(namelist[i]->d_name, "..")) continue;
-
-    sprintf(tmpPath, "%s/%s", filepath, namelist[i]->d_name);
-
-    if (lstat(tmpPath, &tmpbuf) < 0) {
-      fprintf(stderr, "ERROR: lstat error for %s\n", tmpPath);
-      return 1;
-    }
-
-    if(S_ISREG(tmpbuf.st_mode)) {
-      strcpy(tmpPath, namelist[i]->d_name);
-      tmpPath[strlen(tmpPath) - 13] = '\0';
-      if(strcmp(tmpPath, filename)) continue;
-
-      fileNode *new = (fileNode *)malloc(sizeof(fileNode));
-      sprintf(new->path, "%s/%s", filepath, namelist[i]->d_name);
-      new->statbuf = tmpbuf;
-      curr->next = new;
-      curr = curr->next;
+        if (lstat(tmpPath, &tmpbuf) < 0) {
+          fprintf(stderr, "ERROR: lstat error for %s\n", tmpPath);
+          return 1;
+        }
+        fileNode *new = (fileNode *)malloc(sizeof(fileNode));
+        strcpy(new->path,logcurr->backuppath);
+        new->statbuf = tmpbuf;
+        curr->next = new;
+        curr = curr->next;
+      }
+      if(logcurr->next==NULL)break;
     }
   }
+  else {printf("backup dir is empty.");return 0;}
+  // if (lstat(filepath, &statbuf) < 0) {
+  //   fprintf(stderr, "Usage : remove <FILENAME> [OPTION]\n");
+  //   return 1;
+  // }
+
+  // for(i = 0; i < cnt; i++) {
+  //   if(!strcmp(namelist[i]->d_name, ".") || !strcmp(namelist[i]->d_name, "..")) continue;
+
+  //   sprintf(tmpPath, "%s/%s", filepath, namelist[i]->d_name);
+  //   printf("%s\n", tmpPath);
+  //   if (lstat(tmpPath, &tmpbuf) < 0) {
+  //     fprintf(stderr, "ERROR: lstat error for %s\n", tmpPath);
+  //     return 1;
+  //   }
+
+  //   if(S_ISREG(tmpbuf.st_mode)) {
+  //     strcpy(tmpPath, namelist[i]->d_name);
+  //     tmpPath[strlen(tmpPath) - 13] = '\0';
+  //     if(strcmp(tmpPath, filename)) continue;
+
+  //     fileNode *new = (fileNode *)malloc(sizeof(fileNode));
+  //     sprintf(new->path, "%s/%s", filepath, namelist[i]->d_name);
+  //     new->statbuf = tmpbuf;
+  //     curr->next = new;
+  //     curr = curr->next;
+  //   }
+  // }
 
   if(head->next == NULL) {
     printf("no backup file(s) of \"%s\"\n", originPath);
     return 1;
   } else if(head->next->next == NULL) {
+
+    strcpy(file_backuppath,head->next->path);
+    file_backuppath[strlen(head->next->path)-strlen(filename)-1]=0;//dir 이름
+
     if(remove(head->next->path)) {
       fprintf(stderr, "ERROR: remove error for %s", head->next->path);
     }
 
-    printf("\"%s\" removed by \n", head->next->path);
+    //dir에 남은 파일이 없으면 dir도 삭제
+    if((cnt = scandir(file_backuppath, &namelist, NULL, alphasort)) == -1) {
+      fprintf(stderr, "ERROR: scandir error for %s\n", filepath);
+      return 1;
+    }
+    if(cnt<3) remove(file_backuppath);
+    strcpy(date, head->next->path + (strlen(backuppath))+1);
+    date[strlen(date)-strlen(filename)-1]=0;
+    printf("%s : \"%s\" removed by \"%s\"\n",date, head->next->path, originPath);//이거 log에도 써야함
+
+    sprintf(logpath, "%s : \"%s\" removed by \"%s\"\n",date, head->next->path, originPath);
+    len=strlen(date)+strlen(head->next->path)+strlen(originPath)+20;
+    logpath[len]=0;
+  
+    if((log_fd = open("backup/ssubak.log", O_WRONLY|O_APPEND)) < 0) {//이어서 쓸 수 있게
+      fprintf(stderr,"ERROR: open error for backup/ssubak.log\n");
+      return 1;
+    }
+    write(log_fd, logpath,len);//작성 @@@ 에러 체크 필요
+    close(log_fd);
+//연결리스트에서 빼는거 까먹었다링
     free(head);
   } else {
     printf("backup files of \"%s\"\n", originPath);
     printf("0. exit\n");
     curr = head->next;
     for(i = 1; curr != NULL; curr = curr->next) {
-      strcpy(date, curr->path + (strlen(curr->path) - 12));
+      strcpy(date, curr->path + (strlen(backuppath))+1);
+      date[strlen(date)-strlen(filename)-1]=0;
       printf("%d. %s\t%sbytes\n", i, date, cvtNumComma(curr->statbuf.st_size));
       i++;
     }
-    printf("Choose file to recover\n");
+    printf("Choose file to remove\n");
     
     while(true) {
       printf(">> ");
@@ -546,11 +715,34 @@ int RemoveFile(char* path) {
       curr = head->next;
       for(i = 1; curr != NULL; curr = curr->next) {
         if(i == num) {
+          strcpy(file_backuppath,curr->path);
+          file_backuppath[strlen(curr->path)-strlen(filename)-1]=0;
+
           if(remove(curr->path)) {
             fprintf(stderr, "ERROR: remove error for %s", curr->path);
           }
+          //dir에 남은 파일이 없으면 dir도 삭제
+          if((cnt = scandir(file_backuppath, &namelist, NULL, alphasort)) == -1) {
+            fprintf(stderr, "ERROR: scandir error for %s\n", filepath);
+            return 1;
+          }
+          if(cnt<3) remove(file_backuppath);
+          strcpy(date, curr->path + (strlen(backuppath))+1);
+          date[strlen(date)-strlen(filename)-1]=0;
 
-          printf("\"%s\" backup file removed\n", curr->path);
+          printf("%s : \"%s\" removed by \"%s\"\n",date, curr->path, originPath);//log써야함
+
+          sprintf(logpath, "%s : \"%s\" removed by \"%s\"\n",date, curr->path, originPath);
+          len=strlen(date)+strlen(curr->path)+strlen(originPath)+20;
+          logpath[len]=0;
+        
+          if((log_fd = open("backup/ssubak.log", O_WRONLY|O_APPEND)) < 0) {//이어서 쓸 수 있게
+            fprintf(stderr,"ERROR: open error for backup/ssubak.log\n");
+            return 1;
+          }
+          write(log_fd, logpath,len);//작성 @@@ 에러 체크 필요
+          close(log_fd);
+          //연결리스트에서 빼는것도 잊지말고
           free(curr);
           break;
         }
@@ -692,7 +884,9 @@ int BackupFile(char *path, char *date) {
         return 1;
       }
       if(S_ISREG(tmpbuf.st_mode)) {
-        if(statbuf.st_size != tmpbuf.st_size) continue;
+        if(statbuf.st_size != tmpbuf.st_size) {
+          if (logcurr->next==NULL)break;
+          else continue;}
         ConvertHash(tmpPath, tmphash);
         if(!strcmp(filehash, tmphash)) {
           printf("\"%s\" is already backuped to \"%s\"\n",path, tmpPath);
@@ -738,7 +932,7 @@ int BackupFile(char *path, char *date) {
   strcpy(dirback, backupPATH);
   strcat(dirback,"/");
   strcat(dirback,date);//path 를 만들어서
-
+  printf("%s", dirback);
   if (access(dirback, F_OK))//dir만들고
         mkdir(dirback, 0777);
   for(int i=0;i<strlen(path);i++){
@@ -1272,9 +1466,9 @@ int main(int argc, char* argv[]) {
  // if(!strcmp(argv[1], "md5")) {
     hash = HASH_MD5;
  // }
-  if(!strcmp(argv[1], "sha1")) {
-    hash = HASH_SHA1;
-  }
+  // if(!strcmp(argv[1], "sha1")) {
+  //   hash = HASH_SHA1;
+  // }
   
   Prompt(argc-1,argv+1);
 
