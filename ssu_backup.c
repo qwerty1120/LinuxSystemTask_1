@@ -766,7 +766,6 @@ int RemoveAll(char *path, int flag, int *filecnt, int *dircnt) {
 
     if (strcmp(path, backupPATH)) {
         remove(path);
-        printf("\"%s\" backup file removed\n", path);
     } else {
         if (*dircnt == 0 && *filecnt == 0) {
             printf("no file(s) in the backup\n");
@@ -793,7 +792,7 @@ int RemoveCommand(command_parameter *parameter) {
 
     strcpy(originPath, parameter->filename);
     sprintf(backupPath, "%s%s", backupPATH, originPath + strlen(homePATH));
-
+    printf("%s\n",backupPath);
     if (parameter->commandopt & OPT_A) {
         strcpy(backupPath, backupPATH);
         flag = 2;
@@ -1163,6 +1162,7 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
                     }
                     parameter->commandopt |= OPT_D;
                 }
+                if((parameter->commandopt & OPT_R)&&(parameter->commandopt & OPT_D)) parameter->commandopt&=~OPT_D;
                 optcnt++;
                 lastind = optind;
             }
