@@ -798,7 +798,33 @@ int RemoveAll(char *path, int flag, int command_opt) {
     }
     return 0;
 }
+int RemoveDirch(char *path){
+    struct dirent **namelist;
+    struct stat statbuf;
+    char *tmpPath = (char *) malloc(sizeof(char) * PATHMAX);
+    int cnt,i;
 
+    if (lstat(path, &statbuf) < 0) {
+        return 1;
+    }
+    if (S_ISDIR(statbuf.st_mode)) {
+        if ((cnt = scandir(path, &namelist, NULL, alphasort)) == -1) {
+            fprintf(stderr, "ERROR: scandir error for %s\n", path);
+            return 1;
+        }
+        for (i = 0; i < cnt; i++) {
+            if (!strcmp(namelist[i]->d_name, ".") || !strcmp(namelist[i]->d_name, "..")) continue;
+            sprintf(tmpPath, "%s/%s", path, namelist[i]->d_name);
+            RemoveDirch(tmpPath);
+        }
+        if ((cnt = scandir(path, &namelist, NULL, alphasort)) == -1) {
+            fprintf(stderr, "ERROR: scandir error for %s\n", path);
+            return 1;
+        }
+        if(cnt<3)remove(path);
+    }
+    return 0;
+}
 int RemoveCommand(command_parameter *parameter) {
     struct stat statbuf;
     int i;
@@ -828,7 +854,7 @@ int RemoveCommand(command_parameter *parameter) {
     } else {
         RemoveAll(originPath, flag, parameter->commandopt);
     }
-
+    RemoveDirch(backupPATH);
     return 0;
 }
 
