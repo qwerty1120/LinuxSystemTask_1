@@ -1,5 +1,5 @@
 #include "ssu_header.h"
-
+void Init();
 void print_tree(int height, char *isLastDir){
     struct dirent **namelist;
     int i, count, lastIdx;
@@ -614,7 +614,7 @@ int RecoverCommand(command_parameter *parameter) {
       mkdir(tmpPath, 0777);
   }
 
-  if(parameter->commandopt & OPT_D) {
+  if(parameter->commandopt & OPT_R) {
     mainDirList = (dirList *)malloc(sizeof(dirList));
     dirNode *head = (dirNode *)malloc(sizeof(dirNode));
     mainDirList->head = head;
@@ -861,6 +861,7 @@ int RemoveAll(char* path, int flag, int *filecnt, int *dircnt) {
     if(*dircnt == 0 && *filecnt == 0) {
       printf("no file(s) in the backup\n");
     } else {
+      Init();
       printf("backup directory cleared(%d regular files and %d subdirectories totally).\n", *filecnt, *dircnt);
     }
   }
@@ -884,12 +885,12 @@ int RemoveCommand(command_parameter *parameter) {
   strcpy(originPath, parameter->filename);
   sprintf(backupPath, "%s%s", backupPATH, originPath + strlen(homePATH));
 
-  if(parameter->commandopt & OPT_C) {
+  if(parameter->commandopt & OPT_A) {
     strcpy(backupPath, backupPATH);
     flag = 2;
   }
 
-  if(parameter->commandopt & OPT_A) {
+  if(parameter->commandopt & OPT_R) {
     flag = 1;
   }
 
@@ -1095,8 +1096,8 @@ int AddCommand(command_parameter *parameter) {
     return -1;
   }
 
-  if(S_ISDIR(statbuf.st_mode) && !(parameter->commandopt & OPT_D)) {
-    fprintf(stderr, "ERROR: %s is a directory\n - use \'-d\' option or input in file path.\n", originPath);
+  if(S_ISDIR(statbuf.st_mode) && !(parameter->commandopt & OPT_R)) {
+    fprintf(stderr, "ERROR: %s is a directory\n - use \'-r\' option or input in file path.\n", originPath);
     return -1;
   }
 
@@ -1256,8 +1257,8 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
 
 			lastind = 2;
 
-			while((option = getopt(argcnt, arglist, "d")) != -1) {
-        if(option != 'd') {
+			while((option = getopt(argcnt, arglist, "r")) != -1) {
+        if(option != 'r') {
           fprintf(stderr, "ERROR: unknown option %c\n", optopt);
           return -1;
         }
@@ -1267,12 +1268,12 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
           return -1;
         }
 
-        if(option == 'd')	{
-          if(parameter->commandopt & OPT_D) {
+        if(option == 'r')	{
+          if(parameter->commandopt & OPT_R) {
             fprintf(stderr, "ERROR: duplicate option -%c\n", option);
             return -1;
           }
-          parameter->commandopt |= OPT_D;
+          parameter->commandopt |= OPT_R;
         }
 
         optcnt++;
@@ -1294,8 +1295,8 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
 
 			lastind = 1;
 
-			while((option = getopt(argcnt, arglist, "ac")) != -1) {
-        if(option != 'a' && option != 'c') {
+			while((option = getopt(argcnt, arglist, "ra")) != -1) {
+        if(option != 'r' && option != 'a') {
           fprintf(stderr, "ERROR: unknown option %c\n", optopt);
           return -1;
         }
@@ -1305,6 +1306,14 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
           return -1;
         }
         
+        if(option == 'r')	{
+          if(parameter->commandopt & OPT_R) {
+            fprintf(stderr, "ERROR: duplicate option -%c\n", option);
+            return -1;
+          }
+          parameter->commandopt |= OPT_R;
+        }
+        
         if(option == 'a')	{
           if(parameter->commandopt & OPT_A) {
             fprintf(stderr, "ERROR: duplicate option -%c\n", option);
@@ -1312,31 +1321,23 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
           }
           parameter->commandopt |= OPT_A;
         }
-        
-        if(option == 'c')	{
-          if(parameter->commandopt & OPT_C) {
-            fprintf(stderr, "ERROR: duplicate option -%c\n", option);
-            return -1;
-          }
-          parameter->commandopt |= OPT_C;
-        }
 
         optcnt++;
 				lastind = optind;
 			}
 
-      if(parameter->commandopt & OPT_A && parameter->commandopt & OPT_C) {
+      if(parameter->commandopt & OPT_R && parameter->commandopt & OPT_A) {
 				fprintf(stderr, "ERROR: option -a and -c can't use concurrency\n");
 				return -1;
       }
       
-			if(((parameter->commandopt & OPT_A) && argcnt - optcnt != 2)
-      || ((parameter->commandopt & OPT_C) && argcnt - optcnt != 1)) {
+			if(((parameter->commandopt & OPT_R) && argcnt - optcnt != 2)
+      || ((parameter->commandopt & OPT_A) && argcnt - optcnt != 1)) {
 				fprintf(stderr, "ERROR: argument error\n");
 				return -1;
 			}
 
-      if(parameter->commandopt & OPT_C) {
+      if(parameter->commandopt & OPT_A) {
         break;
       }
 
@@ -1374,8 +1375,8 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
 
 			lastind = 2;
 
-			while((option = getopt(argcnt, arglist, "dn:")) != -1) {
-        if(option != 'd' && option != 'n') {
+			while((option = getopt(argcnt, arglist, "rn:")) != -1) {
+        if(option != 'r' && option != 'n') {
           fprintf(stderr, "ERROR: unknown option %c\n", optopt);
           return -1;
         }
@@ -1385,12 +1386,12 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
           return -1;
         }
 
-        if(option == 'd')	{
-          if(parameter->commandopt & OPT_D) {
+        if(option == 'r')	{
+          if(parameter->commandopt & OPT_R) {
             fprintf(stderr, "ERROR: duplicate option -%c\n", option);
             return -1;
           }
-          parameter->commandopt |= OPT_D;
+          parameter->commandopt |= OPT_R;
         }
 
         if(option == 'n')	{
@@ -1476,7 +1477,12 @@ int Prompt(int argcnt, char *arglist[]) {
     CommandExec(parameter);
 
   } else if(command & CMD_SYS) {
-    SystemExec(arglist);
+    if(argcnt<2) {
+      sprintf(backupPATH, "%s/backup", getenv("HOME"));
+      printf("backup\n");
+      chdir(backupPATH);
+      print_tree(1,treePATH);}
+      SystemExec(arglist +1);
   }else if(!command){
     fprintf(stderr, "ERROR: invalid command -- '%s'\n./ssu_backup help : show commands for program\n", arglist[0]);
     return -1;

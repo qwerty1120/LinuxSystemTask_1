@@ -37,21 +37,23 @@
 
 #define OPT_A		0b00001
 #define OPT_C		0b00010
-#define OPT_D		0b00100
+#define OPT_R		0b00100
 #define OPT_N		0b01000
+#define OPT_D		0b10000
 #define NOT_OPT 0b00000
 
 char exeNAME[PATHMAX];
 char exePATH[PATHMAX];
 char homePATH[PATHMAX];
 char backupPATH[PATHMAX];
+char treePATH[STRMAX];
 int hash;
 
 char *commanddata[10]={
     "backup",
     "remove",
     "recover",
-    "ls",
+    "list",
     "vi",
     "vim",
     "help"
