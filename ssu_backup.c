@@ -1,3 +1,4 @@
+
 #include "ssu_header.h"
 
 void Init();
@@ -604,9 +605,7 @@ int RemoveFile(char *path, int commandopt) {
 
     strcpy(originPath, path);
     sprintf(filepath, "%s%s", backupPATH, path + strlen(homePATH));
-//    printf("%s\n%s\n", originPath, filepath);
-//    sprintf(originPath, "%s%s", homePATH, path + strlen(backupPATH));
-//    strcpy(filepath, path);
+
     for (idx = strlen(filepath) - 1; filepath[idx] != '/'; idx--);
     strcpy(filename, filepath + idx + 1);
     filepath[idx] = '\0';
@@ -841,10 +840,6 @@ int RemoveCommand(command_parameter *parameter) {
     strcpy(originPath, parameter->filename);
     sprintf(backupPath, "%s%s", backupPATH, originPath + strlen(homePATH));
 
-//    if (parameter->commandopt & OPT_A) {
-//        strcpy(backupPath, backupPATH);
-//        flag = 2;
-//    }
     if (parameter->commandopt & (OPT_R|OPT_D)) {
         flag = 1;
     }
@@ -1265,20 +1260,11 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
                 lastind = optind;
             }
 
-//            if (parameter->commandopt & OPT_R && parameter->commandopt & OPT_A) {
-//                fprintf(stderr, "ERROR: option -a and -c can't use concurrency\n");
-//                return -1;
-//            }
-
             if (((parameter->commandopt & OPT_R) && argcnt - optcnt != 2)
                 || ((parameter->commandopt & OPT_A) && argcnt - optcnt != 2)) {
                 fprintf(stderr, "ERROR: argument error\n");
                 return -1;
             }
-
-//            if (parameter->commandopt & OPT_A) {
-//                break;
-//            }
 
             if (ConvertPath(parameter->filename, parameter->filename) != 0) {
                 fprintf(stderr, "ERROR: %s is invalid filepath\n", parameter->filename);
@@ -1434,18 +1420,12 @@ int Prompt(int argcnt, char **arglist) {
             if (atoi(argv[1]) > treecnt || atoi(argv[1]) < 0) {
                 fprintf(stderr, "Invalid number\n");
                 return -1;
-            }
+            }strcpy(argv[1], treelist[atoi(argv[1])]);
             if (!strcmp("vi", argv[0]) || !strcmp("vim", argv[0])) {
-                strcpy(argv[1], treelist[atoi(argv[1])]);
                 SystemExec((int) a, argv);
             }
-            if (!strcmp("rc", argv[0])) {
-                ParameterInit(&parameter);
-                parameter.command = "recover";
-                if (ParameterProcessing(a, argv, CMD_REC, &parameter) == -1) {
-                    return 0;
-                }
-                CommandExec(parameter);
+            if (!strcmp("rm", argv[0])) {
+                RemoveFile(argv[1],0);
             }
         }
     } else if (!command) {
