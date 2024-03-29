@@ -46,8 +46,9 @@ char exeNAME[PATHMAX];
 char exePATH[PATHMAX];
 char homePATH[PATHMAX];
 char backupPATH[PATHMAX];
-char treePATH[STRMAX];
+char treelist[PATHMAX][PATHMAX];
 int hash;
+int treecnt,treelistcnt;
 
 char *commanddata[10]={
     "backup",
