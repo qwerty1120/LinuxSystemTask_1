@@ -766,7 +766,7 @@ int RemoveFile(char *path, int commandopt) {
     return 0;
 }
 
-int RemoveAll(char *path, int flag, int *filecnt, int *dircnt, int command_opt) {
+int RemoveAll(char *path, int flag, int command_opt) {
     struct stat statbuf;
     struct stat buf;
     int cnt;
@@ -790,26 +790,11 @@ int RemoveAll(char *path, int flag, int *filecnt, int *dircnt, int command_opt) 
 
             sprintf(tmpPath, "%s/%s", path, namelist[i]->d_name);
 
-            RemoveAll(tmpPath, flag, filecnt, dircnt, command_opt);
-        }
-        if (strcmp(path, backupPATH)) {
-            *dircnt += 1;
+            if(command_opt & (OPT_R | OPT_D))
+                RemoveAll(tmpPath, flag, command_opt & (OPT_R | OPT_A));
         }
     } else {
-        if (flag == 1) {
-            printf("\"%s\" backup file removed\n", path);
-        }
-        *filecnt += 1;
-    }
-
-    if (strcmp(path, backupPATH)) {
         RemoveFile(path, command_opt);
-    } else {
-        if (*dircnt == 0 && *filecnt == 0) {
-            printf("no file(s) in the backup\n");
-        } else {
-            printf("backup directory cleared(%d regular files and %d subdirectories totally).\n", *filecnt, *dircnt);
-        }
     }
     return 0;
 }
@@ -841,7 +826,7 @@ int RemoveCommand(command_parameter *parameter) {
     if (flag == 0) {
         RemoveFile(originPath, parameter->commandopt);
     } else {
-        RemoveAll(originPath, flag, &filecnt, &dircnt, parameter->commandopt);
+        RemoveAll(originPath, flag, parameter->commandopt);
     }
     return 0;
 }
@@ -1240,6 +1225,13 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
                         return -1;
                     }
                     parameter->commandopt |= OPT_A;
+                }
+                if (option == 'd') {
+                    if (parameter->commandopt & OPT_D) {
+                        fprintf(stderr, "ERROR: duplicate option -%c\n", option);
+                        return -1;
+                    }
+                    parameter->commandopt |= OPT_D;
                 }
 
                 optcnt++;
