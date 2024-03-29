@@ -47,8 +47,11 @@ char exePATH[PATHMAX];
 char homePATH[PATHMAX];
 char backupPATH[PATHMAX];
 char treelist[PATHMAX][PATHMAX];
-int hash;
+char ssubak[PATHMAX];
+char recurPATH[PATHMAX];
+int hash,recursion;
 int treecnt,treelistcnt;
+
 
 char *commanddata[10]={
     "backup",
@@ -140,7 +143,7 @@ int md5(char *target_path, char *hash_result)
 
 	while ((bytes = fread(buffer, 1, SHRT_MAX, fp)) != 0)
 		MD5_Update(&md5, buffer, bytes);
-	
+
 	MD5_Final(hash, &md5);
 
 	for (int i = 0; i < MD5_DIGEST_LENGTH; i++)
@@ -169,7 +172,7 @@ int sha1(char *target_path, char *hash_result)
 
 	while ((bytes = fread(buffer, 1, SHRT_MAX, fp)) != 0)
 		SHA1_Update(&sha1, buffer, bytes);
-	
+
 	SHA1_Final(hash, &sha1);
 
 	for (int i = 0; i < SHA_DIGEST_LENGTH; i++)
@@ -217,13 +220,13 @@ char *cvtNumComma(int a) {
     ret[i] = str[strlen(str)-i-1];
   }
   ret[i] = '\0';
-  
+
   return ret;
 }
 
 char *GetFileName(char file_path[]) {
   char *file_name;
-  
+
   while(*file_path) {
     if(*file_path == '/' && (file_path +1) != NULL) {
     file_name = file_path+1;
@@ -239,7 +242,7 @@ char *strToHex(char* str) {
     sprintf(result+(i*2), "%02X", str[i]);
   }
   result[strlen(str)*2] = '\0';
-  
+
   return result;
 }
 
@@ -248,11 +251,11 @@ char *getDate() {
 	time_t timer;
 	struct tm *t;
 
-	timer = time(NULL);	
+	timer = time(NULL);
 	t = localtime(&timer);
 
   sprintf(date, "%02d%02d%02d%02d%02d%02d",t->tm_year %100, t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec);
-  
+
   return date;
 }
 
@@ -261,7 +264,7 @@ char *strTodate(char *old_str, char **date) {
 	*date = getDate();
 
   sprintf(result, "%s_%s", old_str, *date);
-	
+
 	return result;
 }
 
@@ -362,7 +365,7 @@ char **GetSubstring(char *str, int *cnt, char *del) {
     *cnt += 1;
     token = Tokenize(NULL, del);
   }
-  
+
 	char **temp = (char **)malloc(sizeof(char *) * (*cnt + 1));
 	for (i = 0; i < *cnt; i++) {
 		temp[i] = templist[i];
@@ -380,7 +383,7 @@ int ConvertPath(char* origin, char* resolved) {
   if(origin == NULL) {
     return -1;
   }
-  
+
   if(origin[0] == '~') {
     sprintf(path, "%s%s", homePATH, origin+1);
   } else if(origin[0] != '/') {
@@ -388,7 +391,7 @@ int ConvertPath(char* origin, char* resolved) {
   } else {
     sprintf(path, "%s", origin);
   }
-  
+
   if(!strcmp(path, "/")) {
     resolved = "/";
     return 0;

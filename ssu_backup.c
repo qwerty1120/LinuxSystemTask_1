@@ -38,7 +38,7 @@ void print_tree(int height, char *isLastDir) {
                 if (!i) { printf("%d.", ++treecnt); }//숫자 자릿수때문에 밀리는거 \b로 처리하렴
                 printf(" ");
             }    //아니라면 공백
-            printf("   ");
+            printf("\t");
         }
         if (i != lastIdx) {
             printf("├─ %s\n", namelist[i]->d_name); //밑에 자식 잇기
@@ -78,16 +78,12 @@ timeList *Gettime_list() {//경로 받기 log 보고 해당 경로와 관련있�
     int rech = 0;//remove, recover 체크용
     int numch = 1, num = 0, numpath = 0, path = 0;
 
-    sprintf(filepath, "%s/backup/ssubak.log", getenv("HOME"));
-    len = strlen(filepath);
-    filepath[len] = 0;
-
-    if (stat(filepath, &statbuf) < 0) {
+    if (stat(ssubak, &statbuf) < 0) {
         fprintf(stderr, "stat error for ssubak.log\n");
         exit(1);
     }
 
-    if ((fd = open(filepath, O_RDONLY)) < 0) {
+    if ((fd = open(ssubak, O_RDONLY)) < 0) {
         fprintf(stderr, "ERROR: open error for %s\n", filepath);
         exit(1);
     }
@@ -255,8 +251,8 @@ int RecoverFile(char *originPath, char *backupPath, char *newPath) {
         len = strlen(date) + strlen(head->next->path) + strlen(newPath) + 22;
         logpath[len] = 0;
 
-        if ((log_fd = open("backup/ssubak.log", O_WRONLY | O_APPEND)) < 0) {//이어서 쓸 수 있게
-            fprintf(stderr, "ERROR: open error for backup/ssubak.log\n");
+        if ((log_fd = open(ssubak, O_WRONLY | O_APPEND)) < 0) {//이어서 쓸 수 있게
+            fprintf(stderr, "ERROR: open error for %s\n",ssubak);
             return 1;
         }
         write(log_fd, logpath, len);//작성 @@@ 에러 체크 필요
@@ -330,8 +326,8 @@ int RecoverFile(char *originPath, char *backupPath, char *newPath) {
                     len = strlen(date) + strlen(curr->path) + strlen(newPath) + 22;
                     logpath[len] = 0;
 
-                    if ((log_fd = open("backup/ssubak.log", O_WRONLY | O_APPEND)) < 0) {//이어서 쓸 수 있게
-                        fprintf(stderr, "ERROR: open error for backup/ssubak.log\n");
+                    if ((log_fd = open(ssubak, O_WRONLY | O_APPEND)) < 0) {//이어서 쓸 수 있게
+                        fprintf(stderr, "ERROR: open error for %s\n",ssubak);
                         return 1;
                     }
                     write(log_fd, logpath, len);//작성 @@@ 에러 체크 필요
@@ -660,8 +656,8 @@ int RemoveFile(char *path) {
         len = strlen(date) + strlen(head->next->path) + strlen(originPath) + 20;
         logpath[len] = 0;
 
-        if ((log_fd = open("backup/ssubak.log", O_WRONLY | O_APPEND)) < 0) {//이어서 쓸 수 있게
-            fprintf(stderr, "ERROR: open error for backup/ssubak.log\n");
+        if ((log_fd = open(ssubak, O_WRONLY | O_APPEND)) < 0) {//이어서 쓸 수 있게
+            fprintf(stderr, "ERROR: open error for %s\n",ssubak);
             return 1;
         }
         write(log_fd, logpath, len);//작성 @@@ 에러 체크 필요
@@ -714,8 +710,8 @@ int RemoveFile(char *path) {
                     len = strlen(date) + strlen(curr->path) + strlen(originPath) + 20;
                     logpath[len] = 0;
 
-                    if ((log_fd = open("backup/ssubak.log", O_WRONLY | O_APPEND)) < 0) {//이어서 쓸 수 있게
-                        fprintf(stderr, "ERROR: open error for backup/ssubak.log\n");
+                    if ((log_fd = open(ssubak, O_WRONLY | O_APPEND)) < 0) {//이어서 쓸 수 있게
+                        fprintf(stderr, "ERROR: open error for %s\n", ssubak);
                         return 1;
                     }
                     write(log_fd, logpath, len);//작성 @@@ 에러 체크 필요
@@ -819,7 +815,6 @@ int BackupFile(char *path, char *date) {
     struct stat statbuf, tmpbuf;
     struct dirent **namelist;
     int cnt;
-
     char *filename = (char *) malloc(sizeof(char *) * PATHMAX);
     char *filepath = (char *) malloc(sizeof(char *) * PATHMAX);
     char *tmpPath = (char *) malloc(sizeof(char *) * PATHMAX);
@@ -876,13 +871,7 @@ int BackupFile(char *path, char *date) {
     strcpy(dirback, backupPATH);
     strcat(dirback, "/");
     strcat(dirback, date);//path 를 만들어서
-
-    if (access(dirback, F_OK))//dir만들고
-        mkdir(dirback, 0777);
-    for (int i = 0; i < strlen(path); i++) {
-        if (path[i] == '/')dirrm = &path[i + 1];
-    }
-    sprintf(newPath, "%s/%s", dirback, dirrm);//대강 백업 dirrm+strlen(homePATH) 여기서 뒤에꺼 뺐음...
+    sprintf(newPath, "%s%s", dirback, path+strlen(recurPATH));
 
     if ((fd1 = open(path, O_RDONLY)) < 0) {
         fprintf(stderr, "ERROR: open error for %s\n", path);
@@ -903,8 +892,8 @@ int BackupFile(char *path, char *date) {
     len = strlen(path) + strlen(newPath) + strlen(date) + 21;
     logpath[len] = 0;
 
-    if ((log_fd = open("backup/ssubak.log", O_WRONLY | O_APPEND)) < 0) {//이어서 쓸 수 있게
-        fprintf(stderr, "ERROR: open error for %s\n", path);
+    if ((log_fd = open(ssubak, O_WRONLY | O_APPEND)) < 0) {//이어서 쓸 수 있게
+        fprintf(stderr, "ERROR: open error for %s\n", ssubak);
         return 1;
     }
     write(log_fd, logpath, len);//작성 @@@ 에러 체크 필요
@@ -919,7 +908,9 @@ int BackupDir(char *path, char *date) {
     int cnt;
 
     strcpy(tmpdir, backupPATH);
-    strcat(tmpdir, path + strlen(homePATH));
+    strcat(tmpdir, "/");
+    strcat(tmpdir, date);
+    strcat(tmpdir, path+strlen(recurPATH));
 
     if (access(tmpdir, F_OK))
         mkdir(tmpdir, 0777);
@@ -956,6 +947,8 @@ int AddCommand(command_parameter *parameter) {
     char *tmpPath = (char *) malloc(sizeof(char *) * PATHMAX);
     char *originPath = (char *) malloc(sizeof(char *) * PATHMAX);
     char *newBackupPath = (char *) malloc(sizeof(char *) * PATHMAX);
+    char *tmpdir = (char *)malloc(sizeof(char *) * PATHMAX);
+    char *date = (char *)malloc(sizeof(char *) * PATHMAX);
     char **backupPathList = NULL;
     int backupPathDepth = 0;
     int i;
@@ -982,6 +975,13 @@ int AddCommand(command_parameter *parameter) {
         fprintf(stderr, "ERROR: %s can't be backuped\n", originPath);
         return -1;
     }
+    sprintf(date, "%s", getDate());
+    strcpy(tmpdir, backupPATH);
+    strcat(tmpdir, "/");
+    strcat(tmpdir, date);
+
+    if(access(tmpdir, F_OK))
+        mkdir(tmpdir, 0777);
 
     if (S_ISREG(statbuf.st_mode)) {
         BackupFile(originPath, getDate());
@@ -996,7 +996,8 @@ int AddCommand(command_parameter *parameter) {
         mainDirList->tail = curr;
 
         while (curr != NULL) {
-            BackupDir(curr->path, getDate());
+            if(!recursion){strcpy(recurPATH,curr->path);recursion=1;}
+            BackupDir(curr->path, date);
             curr = curr->next;
         }
     }
@@ -1386,15 +1387,15 @@ void Init() {
     getcwd(exePATH, PATHMAX);
     sprintf(homePATH, "%s", getenv("HOME"));
     sprintf(backupPATH, "%s/backup", getenv("HOME"));
+    snprintf(ssubak,strlen(backupPATH)+12, "%s/ssubak.log",backupPATH);
 
     if (access(backupPATH, F_OK))
         mkdir(backupPATH, 0777);
     chdir(backupPATH);
 
     int fd;
-    char *fname = "ssubak.log";
-    if ((fd = open("ssubak.log", O_RDWR | O_CREAT, 0777)) < 0) {
-        fprintf(stderr, "open error for %s\n", fname);
+    if ((fd = open(ssubak, O_RDWR | O_CREAT, 0777)) < 0) {
+        fprintf(stderr, "open error for %s\n", ssubak);
         exit(1);
     }
     backuplist = Gettime_list();
