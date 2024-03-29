@@ -621,8 +621,8 @@ int RemoveFile(char *path, int commandopt) {
                 tmpPath[strlen(logcurr->backuppath)] = 0;
 
                 if (lstat(tmpPath, &tmpbuf) < 0) {
-                    fprintf(stderr, "ERROR: lstat error for %s\n", tmpPath);
-                    return 1;
+                    //fprintf(stderr, "ERROR: lstat error for %s\n", tmpPath);
+                    continue;
                 }
                 fileNode *new = (fileNode *) malloc(sizeof(fileNode));
                 strcpy(new->path, logcurr->backuppath);
@@ -828,6 +828,7 @@ int RemoveCommand(command_parameter *parameter) {
     } else {
         RemoveAll(originPath, flag, parameter->commandopt);
     }
+
     return 0;
 }
 
