@@ -4,7 +4,6 @@ void print_tree(int height, char *isLastDir){
     struct dirent **namelist;
     int i, count, lastIdx;
     struct stat statbuf;
-    
     //scandir 실패시 return
     if((count = scandir(".", &namelist, NULL, alphasort)) == -1){
         return;
@@ -37,8 +36,10 @@ void print_tree(int height, char *isLastDir){
         for(int i = 0; i < height; i++){
             if(isLastDir[i] == 0)   //마지막 원소가 아니었다면 잇기
                 printf("│");
-            else
-                printf(" ");    //아니라면 공백
+            else{
+              if(!i){printf("%d.",++treecnt);}//숫자 자릿수때문에 밀리는거 \b로 처리하렴
+                printf(" ");
+                }    //아니라면 공백
             printf("   ");
         }
 
@@ -63,6 +64,7 @@ void print_tree(int height, char *isLastDir){
 
     //현재 디렉토리를 모두 출력했다면 namelist free
     free(namelist);
+    if(height==1)printf(">> ");
 }
 
 timeList *Gettime_list(){//경로 받기 log 보고 해당 경로와 관련있는 backup 속 dir 찾기
@@ -1477,11 +1479,18 @@ int Prompt(int argcnt, char *arglist[]) {
     CommandExec(parameter);
 
   } else if(command & CMD_SYS) {
-    if(argcnt<2) {
-      sprintf(backupPATH, "%s/backup", getenv("HOME"));
-      printf("backup\n");
-      chdir(backupPATH);
-      print_tree(1,treePATH);}
+      if(argcnt<2) {
+        printf("%s\n",homePATH);
+        print_tree(1,treePATH);
+      }
+      else {
+        chdir(arglist[1]);
+        getcwd(treePATH,PATHMAX);
+        printf("%d. %s\n",treecnt, treePATH);
+        print_tree(1,treePATH);
+        chdir(homePATH);
+        scanf("%d", &treecnt);
+      }
       SystemExec(arglist +1);
   }else if(!command){
     fprintf(stderr, "ERROR: invalid command -- '%s'\n./ssu_backup help : show commands for program\n", arglist[0]);
