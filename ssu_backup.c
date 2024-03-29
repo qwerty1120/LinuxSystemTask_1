@@ -738,7 +738,7 @@ int RemoveFile(char* path) {
     if(cnt<3) remove(file_backuppath);
     strcpy(date, head->next->path + (strlen(backuppath))+1);
     date[strlen(date)-strlen(filename)-1]=0;
-    printf("%s : \"%s\" removed by \"%s\"\n",date, head->next->path, originPath);//이거 log에도 써야함
+    printf("\"%s\" removed by \"%s\"\n",head->next->path, originPath);//이거 log에도 써야함
 
     sprintf(logpath, "%s : \"%s\" removed by \"%s\"\n",date, head->next->path, originPath);
     len=strlen(date)+strlen(head->next->path)+strlen(originPath)+20;
@@ -795,7 +795,7 @@ int RemoveFile(char* path) {
           strcpy(date, curr->path + (strlen(backuppath))+1);
           date[strlen(date)-strlen(filename)-1]=0;
 
-          printf("%s : \"%s\" removed by \"%s\"\n",date, curr->path, originPath);//log써야함
+          printf("\"%s\" removed by \"%s\"\n",curr->path, originPath);//log써야함
 
           sprintf(logpath, "%s : \"%s\" removed by \"%s\"\n",date, curr->path, originPath);
           len=strlen(date)+strlen(curr->path)+strlen(originPath)+20;
@@ -997,7 +997,7 @@ int BackupFile(char *path, char *date) {
   strcpy(dirback, backupPATH);
   strcat(dirback,"/");
   strcat(dirback,date);//path 를 만들어서
-  printf("%s", dirback);
+  
   if (access(dirback, F_OK))//dir만들고
         mkdir(dirback, 0777);
   for(int i=0;i<strlen(path);i++){
@@ -1509,7 +1509,6 @@ void Init() {
 
 int main(int argc, char* argv[]) {
   Init();
-  static char buf[STRMAX];
   if(!strcmp(argv[0], "command")) {
       hash = atoi(argv[1]);
       
@@ -1522,8 +1521,7 @@ int main(int argc, char* argv[]) {
       return -1;
     }
   }
-  printf("%s\n", getcwd(buf,STRMAX));
-  print_tree(0,buf );
+  
   strcpy(exeNAME, argv[0]);
   // if(strcmp(argv[1], "md5") && strcmp(argv[1], "sha1")) {
   //   fprintf(stderr, "input error: wrong hash <md5 | sha1>\n");
