@@ -766,6 +766,7 @@ int RemoveAll(char *path, int flag, int *filecnt, int *dircnt) {
 
     if (strcmp(path, backupPATH)) {
         remove(path);
+        printf("\"%s\" backup file removed\n", path);
     } else {
         if (*dircnt == 0 && *filecnt == 0) {
             printf("no file(s) in the backup\n");
@@ -836,7 +837,7 @@ int BackupFile(char *path, char *date, int y) {
 
     strcpy(filename, filepath + idx + 1);
     filepath[idx] = '\0';
-    strcpy(recurPATH,filepath);
+    //strcpy(recurPATH,filepath);
     if (lstat(path, &statbuf) < 0) {
         fprintf(stderr, "ERROR: lstat error for %s\n", path);
         return 1;
@@ -901,7 +902,7 @@ int BackupFile(char *path, char *date, int y) {
     close(log_fd);
 }
 
-int BackupDir(char *path, char *date) {
+int BackupDir(char *path, char *date, int r, int y) {
     struct dirent **namelist;
     struct stat statbuf;
     char *tmppath = (char *) malloc(sizeof(char *) * PATHMAX);
@@ -931,13 +932,14 @@ int BackupDir(char *path, char *date) {
             return 1;
         }
 
-        if (S_ISDIR(statbuf.st_mode)) {
+        if (S_ISDIR(statbuf.st_mode)&& r) {
             dirNode *new = (dirNode *) malloc(sizeof(dirNode));
             strcpy(new->path, tmppath);
             mainDirList->tail->next = new;
             mainDirList->tail = mainDirList->tail->next;
         } else if (S_ISREG(statbuf.st_mode)) {
-            BackupFile(tmppath, date,1);
+            if(y)BackupFile(tmppath, date,1);
+            else BackupFile(tmppath, date,0);
         }
     }
 }
@@ -966,7 +968,7 @@ int AddCommand(command_parameter *parameter) {
         return -1;
     }
 
-    if (S_ISDIR(statbuf.st_mode) && !(parameter->commandopt & OPT_R) && !(parameter->commandopt & OPT_Y)) {
+    if (S_ISDIR(statbuf.st_mode) && !(parameter->commandopt & OPT_R) && !(parameter->commandopt & OPT_D)) {
         fprintf(stderr, "ERROR: %s is a directory\n - use \'-r\' option or input in file path.\n", originPath);
         return -1;
     }
@@ -999,7 +1001,10 @@ int AddCommand(command_parameter *parameter) {
 
         while (curr != NULL) {
             if(!recursion){strcpy(recurPATH,curr->path);recursion=1;}
-            BackupDir(curr->path, date);
+            if((parameter->commandopt & OPT_D)&&((parameter->commandopt & OPT_Y)))BackupDir(curr->path, date, 0, 0);
+            else if(parameter->commandopt & OPT_Y)BackupDir(curr->path, date, 1, 0);
+            else if(parameter->commandopt & OPT_D)BackupDir(curr->path, date, 0, 1);
+            else BackupDir(curr->path, date, 1, 1);
             curr = curr->next;
         }
     }
@@ -1126,8 +1131,8 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
 
             lastind = 2;
 
-            while ((option = getopt(argcnt, arglist, "ry")) != -1) {
-                if (option != 'r'&&option != 'y') {
+            while ((option = getopt(argcnt, arglist, "rdy")) != -1) {
+                if (option != 'r'&&option != 'y'&&option != 'd') {
                     fprintf(stderr, "ERROR: unknown option %c\n", optopt);
                     return -1;
                 }
@@ -1150,6 +1155,13 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
                         return -1;
                     }
                     parameter->commandopt |= OPT_Y;
+                }
+                else if(option == 'd'){
+                    if (parameter->commandopt & OPT_D) {
+                        fprintf(stderr, "ERROR: duplicate option -%c\n", option);
+                        return -1;
+                    }
+                    parameter->commandopt |= OPT_D;
                 }
                 optcnt++;
                 lastind = optind;
