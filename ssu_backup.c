@@ -536,6 +536,7 @@ int RecoverCommand(command_parameter *parameter) {
     int i;
 
     strcpy(originPath, parameter->filename);
+
     sprintf(backupPath, "%s%s", backupPATH, originPath + strlen(homePATH));
     if (parameter->commandopt & OPT_N) {
         strcpy(newPath, parameter->tmpname);
@@ -578,7 +579,7 @@ int RecoverCommand(command_parameter *parameter) {
     }
 }
 
-int RemoveFile(char *path) {
+int RemoveFile(char *path, int commandopt) {
     fileNode *head = (fileNode *) malloc(sizeof(fileNode));
     fileNode *curr = head;
     timeList *logcurr = backuplist;
@@ -600,8 +601,12 @@ int RemoveFile(char *path) {
     char input[STRMAX];
     int num;
 
-    sprintf(originPath, "%s%s", homePATH, path + strlen(backupPATH));
-    strcpy(filepath, path);
+
+    strcpy(originPath, path);
+    sprintf(filepath, "%s%s", backupPATH, path + strlen(homePATH));
+//    printf("%s\n%s\n", originPath, filepath);
+//    sprintf(originPath, "%s%s", homePATH, path + strlen(backupPATH));
+//    strcpy(filepath, path);
     for (idx = strlen(filepath) - 1; filepath[idx] != '/'; idx--);
     strcpy(filename, filepath + idx + 1);
     filepath[idx] = '\0';
@@ -630,6 +635,39 @@ int RemoveFile(char *path) {
     } else {
         printf("backup dir is empty.");
         return 0;
+    }
+
+    curr = head->next;
+    if(commandopt & OPT_A){
+        while(curr!=NULL){
+            strcpy(date, curr->path + (strlen(backuppath)) + 1);
+            date[strlen(date) - strlen(filename) - 1] = 0;
+
+            strcpy(file_backuppath, curr->path);
+            file_backuppath[strlen(curr->path) - strlen(filename) - 1] = 0;//dir 이름
+
+            printf("\"%s\" removed by \"%s\"\n", curr->path, originPath);//log써야함
+            remove(curr->path);
+
+            if ((cnt = scandir(file_backuppath, &namelist, NULL, alphasort)) == -1) {
+                fprintf(stderr, "ERROR: scandir error for %s\n", filepath);
+                return 1;
+            }
+            if (cnt < 3) remove(file_backuppath);
+
+            sprintf(logpath, "%s : \"%s\" removed by \"%s\"\n", date, curr->path, originPath);
+            len = strlen(date) + strlen(curr->path) + strlen(originPath) + 20;
+            logpath[len] = 0;
+
+            if ((log_fd = open(ssubak, O_WRONLY | O_APPEND)) < 0) {//이어서 쓸 수 있게
+                fprintf(stderr, "ERROR: open error for %s\n", ssubak);
+                return 1;
+            }
+            write(log_fd, logpath, len);//작성 @@@ 에러 체크 필요
+            close(log_fd);
+            curr=curr->next;
+        }
+        return 1;
     }
 
     if (head->next == NULL) {
@@ -728,7 +766,7 @@ int RemoveFile(char *path) {
     return 0;
 }
 
-int RemoveAll(char *path, int flag, int *filecnt, int *dircnt) {
+int RemoveAll(char *path, int flag, int *filecnt, int *dircnt, int command_opt) {
     struct stat statbuf;
     struct stat buf;
     int cnt;
@@ -752,7 +790,7 @@ int RemoveAll(char *path, int flag, int *filecnt, int *dircnt) {
 
             sprintf(tmpPath, "%s/%s", path, namelist[i]->d_name);
 
-            RemoveAll(tmpPath, flag, filecnt, dircnt);
+            RemoveAll(tmpPath, flag, filecnt, dircnt, command_opt);
         }
         if (strcmp(path, backupPATH)) {
             *dircnt += 1;
@@ -765,12 +803,11 @@ int RemoveAll(char *path, int flag, int *filecnt, int *dircnt) {
     }
 
     if (strcmp(path, backupPATH)) {
-        remove(path);
+        RemoveFile(path, command_opt);
     } else {
         if (*dircnt == 0 && *filecnt == 0) {
             printf("no file(s) in the backup\n");
         } else {
-            Init();
             printf("backup directory cleared(%d regular files and %d subdirectories totally).\n", *filecnt, *dircnt);
         }
     }
@@ -792,24 +829,24 @@ int RemoveCommand(command_parameter *parameter) {
 
     strcpy(originPath, parameter->filename);
     sprintf(backupPath, "%s%s", backupPATH, originPath + strlen(homePATH));
-    printf("%s\n",backupPath);
-    if (parameter->commandopt & OPT_A) {
-        strcpy(backupPath, backupPATH);
-        flag = 2;
-    }
-    if (parameter->commandopt & OPT_R) {
+
+//    if (parameter->commandopt & OPT_A) {
+//        strcpy(backupPath, backupPATH);
+//        flag = 2;
+//    }
+    if (parameter->commandopt & (OPT_R|OPT_D)) {
         flag = 1;
     }
 
     if (flag == 0) {
-        RemoveFile(backupPath);
+        RemoveFile(originPath, parameter->commandopt);
     } else {
-        RemoveAll(backupPath, flag, &filecnt, &dircnt);
+        RemoveAll(originPath, flag, &filecnt, &dircnt, parameter->commandopt);
     }
     return 0;
 }
 
-int BackupFile(char *path, char *date, int y) {
+int BackupFile(char *path, char *date, int commandopt) {
     int len;
     int fd1, fd2, log_fd;
     char *buf = (char *) malloc(sizeof(char *) * STRMAX);
@@ -836,7 +873,7 @@ int BackupFile(char *path, char *date, int y) {
 
     strcpy(filename, filepath + idx + 1);
     filepath[idx] = '\0';
-    //strcpy(recurPATH,filepath);
+    if(!commandopt || (commandopt == OPT_Y))strcpy(recurPATH,filepath);
     if (lstat(path, &statbuf) < 0) {
         fprintf(stderr, "ERROR: lstat error for %s\n", path);
         return 1;
@@ -844,7 +881,7 @@ int BackupFile(char *path, char *date, int y) {
 
     ConvertHash(path, filehash);
     timeList *logcurr = backuplist;//(timeList *)malloc(sizeof(timeList));
-    while (y) {
+    while (!(commandopt & OPT_Y)) {
         logcurr = logcurr->next;
         if (!strcmp(logcurr->path, path)) {
             strcpy(tmpPath, logcurr->backuppath);
@@ -901,7 +938,7 @@ int BackupFile(char *path, char *date, int y) {
     close(log_fd);
 }
 
-int BackupDir(char *path, char *date, int r, int y) {
+int BackupDir(char *path, char *date, int commandopt) {
     struct dirent **namelist;
     struct stat statbuf;
     char *tmppath = (char *) malloc(sizeof(char *) * PATHMAX);
@@ -931,14 +968,14 @@ int BackupDir(char *path, char *date, int r, int y) {
             return 1;
         }
 
-        if (S_ISDIR(statbuf.st_mode)&& r) {
+        if (S_ISDIR(statbuf.st_mode)&& (commandopt & OPT_R)) {
             dirNode *new = (dirNode *) malloc(sizeof(dirNode));
             strcpy(new->path, tmppath);
             mainDirList->tail->next = new;
             mainDirList->tail = mainDirList->tail->next;
         } else if (S_ISREG(statbuf.st_mode)) {
-            if(y)BackupFile(tmppath, date,1);
-            else BackupFile(tmppath, date,0);
+            if(!(commandopt & OPT_Y))BackupFile(tmppath, date,commandopt);
+            else BackupFile(tmppath, date,commandopt);
         }
     }
 }
@@ -986,8 +1023,7 @@ int AddCommand(command_parameter *parameter) {
         mkdir(tmpdir, 0777);
 
     if (S_ISREG(statbuf.st_mode)) {
-        if(parameter->commandopt & OPT_Y)BackupFile(originPath, date, 0);
-        else BackupFile(originPath, date, 1);
+        BackupFile(originPath, date, parameter->commandopt);
     } else if (S_ISDIR(statbuf.st_mode)) {
         mainDirList = (dirList *) malloc(sizeof(dirList));
         dirNode *head = (dirNode *) malloc(sizeof(dirNode));
@@ -1000,10 +1036,8 @@ int AddCommand(command_parameter *parameter) {
 
         while (curr != NULL) {
             if(!recursion){strcpy(recurPATH,curr->path);recursion=1;}
-            if((parameter->commandopt & OPT_D)&&((parameter->commandopt & OPT_Y)))BackupDir(curr->path, date, 0, 0);
-            else if(parameter->commandopt & OPT_Y)BackupDir(curr->path, date, 1, 0);
-            else if(parameter->commandopt & OPT_D)BackupDir(curr->path, date, 0, 1);
-            else BackupDir(curr->path, date, 1, 1);
+            BackupDir(curr->path, date, parameter->commandopt);
+
             curr = curr->next;
         }
     }
@@ -1181,8 +1215,8 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
             parameter->filename = arglist[1];
             lastind = 1;
 
-            while ((option = getopt(argcnt, arglist, "ra")) != -1) {
-                if (option != 'r' && option != 'a') {
+            while ((option = getopt(argcnt, arglist, "rda")) != -1) {
+                if (option != 'r' && option != 'a' && option != 'd') {
                     fprintf(stderr, "ERROR: unknown option %c\n", optopt);
                     return -1;
                 }
@@ -1212,20 +1246,20 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
                 lastind = optind;
             }
 
-            if (parameter->commandopt & OPT_R && parameter->commandopt & OPT_A) {
-                fprintf(stderr, "ERROR: option -a and -c can't use concurrency\n");
-                return -1;
-            }
+//            if (parameter->commandopt & OPT_R && parameter->commandopt & OPT_A) {
+//                fprintf(stderr, "ERROR: option -a and -c can't use concurrency\n");
+//                return -1;
+//            }
 
             if (((parameter->commandopt & OPT_R) && argcnt - optcnt != 2)
-                || ((parameter->commandopt & OPT_A) && argcnt - optcnt != 1)) {
+                || ((parameter->commandopt & OPT_A) && argcnt - optcnt != 2)) {
                 fprintf(stderr, "ERROR: argument error\n");
                 return -1;
             }
 
-            if (parameter->commandopt & OPT_A) {
-                break;
-            }
+//            if (parameter->commandopt & OPT_A) {
+//                break;
+//            }
 
             if (ConvertPath(parameter->filename, parameter->filename) != 0) {
                 fprintf(stderr, "ERROR: %s is invalid filepath\n", parameter->filename);
