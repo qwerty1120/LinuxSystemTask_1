@@ -35,12 +35,13 @@
 #define CMD_EXIT		0b0100000
 #define NOT_CMD			0b0000000
 
-#define OPT_A		0b00001
-#define OPT_C		0b00010
-#define OPT_R		0b00100
-#define OPT_N		0b01000
-#define OPT_D		0b10000
-#define NOT_OPT 0b00000
+#define OPT_A		0b000001
+#define OPT_C		0b000010
+#define OPT_R		0b000100
+#define OPT_N		0b001000
+#define OPT_D		0b010000
+#define OPT_Y		0b100000
+#define NOT_OPT 0b000000
 
 char exeNAME[PATHMAX];
 char exePATH[PATHMAX];

@@ -273,8 +273,9 @@ int RecoverFile(char *originPath, char *backupPath, char *newPath) {
         printf("0. exit\n");
         curr = head->next;
         for (i = 1; curr != NULL; curr = curr->next) {
-            strcpy(date, curr->path + (strlen(curr->path) - 12));
-            printf("%d. %s\t%sbytes\n", i, date, cvtNumComma(curr->statbuf.st_size));
+            strcpy(date, curr->path + (strlen(backupPATH))+1);
+            date[12]=0;
+            printf("%d. %s\t\t%sbytes\n", i, date, cvtNumComma(curr->statbuf.st_size));
             i++;
         }
         printf("Choose file to recover\n");
@@ -808,7 +809,7 @@ int RemoveCommand(command_parameter *parameter) {
     return 0;
 }
 
-int BackupFile(char *path, char *date) {
+int BackupFile(char *path, char *date, int y) {
     int len;
     int fd1, fd2, log_fd;
     char *buf = (char *) malloc(sizeof(char *) * STRMAX);
@@ -835,7 +836,7 @@ int BackupFile(char *path, char *date) {
 
     strcpy(filename, filepath + idx + 1);
     filepath[idx] = '\0';
-
+    strcpy(recurPATH,filepath);
     if (lstat(path, &statbuf) < 0) {
         fprintf(stderr, "ERROR: lstat error for %s\n", path);
         return 1;
@@ -843,7 +844,7 @@ int BackupFile(char *path, char *date) {
 
     ConvertHash(path, filehash);
     timeList *logcurr = backuplist;//(timeList *)malloc(sizeof(timeList));
-    while (1) {
+    while (y) {
         logcurr = logcurr->next;
         if (!strcmp(logcurr->path, path)) {
             strcpy(tmpPath, logcurr->backuppath);
@@ -936,7 +937,7 @@ int BackupDir(char *path, char *date) {
             mainDirList->tail->next = new;
             mainDirList->tail = mainDirList->tail->next;
         } else if (S_ISREG(statbuf.st_mode)) {
-            BackupFile(tmppath, date);
+            BackupFile(tmppath, date,1);
         }
     }
 }
@@ -965,7 +966,7 @@ int AddCommand(command_parameter *parameter) {
         return -1;
     }
 
-    if (S_ISDIR(statbuf.st_mode) && !(parameter->commandopt & OPT_R)) {
+    if (S_ISDIR(statbuf.st_mode) && !(parameter->commandopt & OPT_R) && !(parameter->commandopt & OPT_Y)) {
         fprintf(stderr, "ERROR: %s is a directory\n - use \'-r\' option or input in file path.\n", originPath);
         return -1;
     }
@@ -984,7 +985,8 @@ int AddCommand(command_parameter *parameter) {
         mkdir(tmpdir, 0777);
 
     if (S_ISREG(statbuf.st_mode)) {
-        BackupFile(originPath, getDate());
+        if(parameter->commandopt & OPT_Y)BackupFile(originPath, date, 0);
+        else BackupFile(originPath, date, 1);
     } else if (S_ISDIR(statbuf.st_mode)) {
         mainDirList = (dirList *) malloc(sizeof(dirList));
         dirNode *head = (dirNode *) malloc(sizeof(dirNode));
@@ -1124,8 +1126,8 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
 
             lastind = 2;
 
-            while ((option = getopt(argcnt, arglist, "r")) != -1) {
-                if (option != 'r') {
+            while ((option = getopt(argcnt, arglist, "ry")) != -1) {
+                if (option != 'r'&&option != 'y') {
                     fprintf(stderr, "ERROR: unknown option %c\n", optopt);
                     return -1;
                 }
@@ -1142,7 +1144,13 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
                     }
                     parameter->commandopt |= OPT_R;
                 }
-
+                else if(option == 'y'){
+                    if (parameter->commandopt & OPT_Y) {
+                        fprintf(stderr, "ERROR: duplicate option -%c\n", option);
+                        return -1;
+                    }
+                    parameter->commandopt |= OPT_Y;
+                }
                 optcnt++;
                 lastind = optind;
             }
@@ -1366,10 +1374,10 @@ int Prompt(int argcnt, char **arglist) {
                 strcpy(argv[1], treelist[atoi(argv[1])]);
                 SystemExec((int) a, argv);
             }
-            if (!strcmp("rm", argv[0])) {
+            if (!strcmp("rc", argv[0])) {
                 ParameterInit(&parameter);
-                parameter.command = "remove";
-                if (ParameterProcessing(a, argv, CMD_REM, &parameter) == -1) {
+                parameter.command = "recover";
+                if (ParameterProcessing(a, argv, CMD_REC, &parameter) == -1) {
                     return 0;
                 }
                 CommandExec(parameter);
