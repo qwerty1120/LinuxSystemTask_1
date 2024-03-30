@@ -411,7 +411,7 @@ int RecoverDir(char *path, char *newPath, int command_opt) {
             sprintf(tmpPath, "%s/%s", path, namelist[i]->d_name);
             sprintf(tnpPath, "%s/%s", newPath, namelist[i]->d_name);
             if(command_opt & (OPT_R | OPT_D))
-                RecoverDir(tmpPath, tnpPath, command_opt & OPT_R);
+                RecoverDir(tmpPath, tnpPath, command_opt & (OPT_R|OPT_L));
         }
     } else {
         RecoverFile(path, newPath, command_opt);
