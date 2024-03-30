@@ -36,7 +36,7 @@
 #define NOT_CMD			0b0000000
 
 #define OPT_A		0b000001
-#define OPT_C		0b000010
+#define OPT_L		0b000010
 #define OPT_R		0b000100
 #define OPT_N		0b001000
 #define OPT_D		0b010000
@@ -50,6 +50,7 @@ char backupPATH[PATHMAX];
 char treelist[PATHMAX][PATHMAX];
 char ssubak[PATHMAX];
 char recurPATH[PATHMAX];
+char N_path[PATHMAX];
 int hash,recursion;
 int treecnt,treelistcnt;
 
@@ -61,7 +62,8 @@ char *commanddata[10]={
     "list",
     "vi",
     "vim",
-    "help"
+    "help",
+    "rm"
   };
 
 typedef struct command_parameter {

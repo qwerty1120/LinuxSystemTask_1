@@ -187,6 +187,7 @@ int RecoverFile(char *path, char *newPath, int commandopt) {
     int len;
     int log_fd;
     char ch=0;
+
     strcpy(Newbuf, newPath);
     for(int j=0;newPath[j]!=0;j++){
         if(newPath[j]=='/') {
@@ -373,178 +374,49 @@ int RecoverFile(char *path, char *newPath, int commandopt) {
     }
     return 0;
 }
-
-int RecoverDir(char *path, char *backupPath, char *newPath) {
+int RecoverDir(char *path, char *newPath, int command_opt) {
     struct stat statbuf;
-    struct dirent **namelist;
-    char *tmpPath = (char *) malloc(sizeof(char *) * PATHMAX);
-    char *tmpOriginPath = (char *) malloc(sizeof(char *) * PATHMAX);
-    char *buf = (char *) malloc(sizeof(char *) * STRMAX);
-    char *date = (char *) malloc(sizeof(char *) * STRMAX);
-    char *input = (char *) malloc(sizeof(char *) * STRMAX);
+    struct stat buf;
     int cnt;
-    int len;
-    int fd1, fd2;
+    struct dirent **namelist;
+    char *tnpPath = (char *) malloc(sizeof(char) * PATHMAX);
+    char *tmpPath = (char *) malloc(sizeof(char) * PATHMAX);
+    char *Newbuf = (char *) malloc(sizeof(char) * PATHMAX);
     int i;
-    int num;
 
-    dirNode *list = (dirNode *) malloc(sizeof(dirNode));
-    list->head = (fileNode *) malloc(sizeof(fileNode));
-    fileNode *curr = list->head;
-
-    if (lstat(backupPath, &statbuf) < 0) {
-        fprintf(stderr, "Usage : recover <FILENAME> [OPTION]\n");
+    strcpy(Newbuf, newPath);
+    for(int j=0;newPath[j]!=0;j++){
+        if(newPath[j]=='/') {
+            Newbuf[j] = 0;
+            if(access(Newbuf,F_OK)){
+                mkdir(Newbuf,0777);
+            }
+            Newbuf[j]='/';
+        }
+    }
+    if (lstat(path, &statbuf) < 0) {
+        fprintf(stderr, "Usage : remove <FILENAME> [OPTION]\n");
         return 1;
     }
 
-    if (access(newPath, F_OK))
-        mkdir(newPath, 0777);
-    if ((cnt = scandir(backupPath, &namelist, NULL, alphasort)) == -1) {
-        fprintf(stderr, "ERROR: scandir error for %s\n", backupPath);
-        return 1;
-    }
-
-    for (int i = 0; i < cnt; i++) {
-        if (!strcmp(namelist[i]->d_name, ".") || !strcmp(namelist[i]->d_name, "..")) continue;
-
-        sprintf(tmpPath, "%s/%s", backupPath, namelist[i]->d_name);
-        if (lstat(tmpPath, &statbuf) < 0) {
-            fprintf(stderr, "ERROR: lstat error for %s\n", tmpPath);
+    if (S_ISDIR(statbuf.st_mode)) {
+        if ((cnt = scandir(path, &namelist, NULL, alphasort)) == -1) {
+            fprintf(stderr, "ERROR: scandir error for %s\n", path);
             return 1;
         }
 
-        if (S_ISDIR(statbuf.st_mode)) {
-            dirNode *new = (dirNode *) malloc(sizeof(dirNode));
+        for (i = 0; i < cnt; i++) {
+            if (!strcmp(namelist[i]->d_name, ".") || !strcmp(namelist[i]->d_name, "..")) continue;
+
             sprintf(tmpPath, "%s/%s", path, namelist[i]->d_name);
-            strcpy(new->path, tmpPath);
-            sprintf(tmpPath, "%s/%s", backupPath, namelist[i]->d_name);
-            strcpy(new->backupPath, tmpPath);
-            sprintf(tmpPath, "%s/%s", newPath, namelist[i]->d_name);
-            strcpy(new->newPath, tmpPath);
-            mainDirList->tail->next = new;
-            mainDirList->tail = mainDirList->tail->next;
-        } else if (S_ISREG(statbuf.st_mode)) {
-            sprintf(tmpOriginPath, "%s%s", homePATH, tmpPath + strlen(backupPATH));
-            tmpOriginPath[strlen(tmpOriginPath) - 13] = '\0';
-
-            backupNode *new = (backupNode *) malloc(sizeof(backupNode));
-            sprintf(new->backupPath, "%s/%s", backupPath, namelist[i]->d_name);
-            sprintf(new->newPath, "%s/%s", newPath, namelist[i]->d_name);
-            new->newPath[strlen(new->newPath) - 13] = '\0';
-            if (lstat(new->backupPath, &(new->statbuf)) < 0) {
-                fprintf(stderr, "ERROR: lstat error for %s\n", new->backupPath);
-                return 1;
-            }
-
-            if (curr->next == NULL) {
-                curr->next = (fileNode *) malloc(sizeof(fileNode));
-                strcpy(curr->next->path, tmpOriginPath);
-                curr->next->head = (backupNode *) malloc(sizeof(backupNode));
-            } else if (strcmp(curr->next->path, tmpOriginPath)) {
-                curr = curr->next;
-                curr->next = (fileNode *) malloc(sizeof(fileNode));
-                strcpy(curr->next->path, tmpOriginPath);
-                curr->next->head = (backupNode *) malloc(sizeof(backupNode));
-            }
-
-            backupNode *currBackup = curr->next->head;
-            while (currBackup->next != NULL) {
-                currBackup = currBackup->next;
-            }
-            currBackup->next = new;
+            sprintf(tnpPath, "%s/%s", newPath, namelist[i]->d_name);
+            if(command_opt & (OPT_R | OPT_D))
+                RecoverDir(tmpPath, tnpPath, command_opt & OPT_R);
         }
+    } else {
+        RecoverFile(path, newPath, command_opt);
     }
-
-    curr = list->head->next;
-    while (curr != NULL) {
-        backupNode *currBackup = curr->head->next;
-        if (currBackup->next == NULL) {
-            if (access(currBackup->newPath, F_OK) != -1 && !cmpHash(currBackup->newPath, currBackup->backupPath)) {
-                printf("%s is not changed with %s\n", currBackup->backupPath, currBackup->newPath);
-                curr = curr->next;
-                continue;
-            }
-
-            if ((fd1 = open(currBackup->backupPath, O_RDONLY)) < 0) {
-                fprintf(stderr, "ERROR: open error for %s\n", currBackup->backupPath);
-                return 1;
-            }
-
-            if ((fd2 = open(currBackup->newPath, O_CREAT | O_TRUNC | O_WRONLY, 777)) < 0) {
-                fprintf(stderr, "ERROR: open error for %s\n", currBackup->newPath);
-                return 1;
-            }
-
-            while ((len = read(fd1, buf, currBackup->statbuf.st_size)) > 0) {
-                write(fd2, buf, len);
-            }
-
-            if (remove(currBackup->backupPath)) {
-                fprintf(stderr, "ERROR: remove error for %s\n", currBackup->backupPath);
-            }
-
-            printf("\"%s\" backup recover to \"%s\"\n", currBackup->backupPath, currBackup->newPath);
-        } else {
-            printf("backup files of \"%s\"\n", curr->path);
-            printf("0. exit\n");
-            for (i = 1; currBackup != NULL; currBackup = currBackup->next) {
-                strcpy(date, currBackup->backupPath + (strlen(currBackup->backupPath) - 12));
-                printf("%d. %s\t%sbytes\n", i, date, cvtNumComma(currBackup->statbuf.st_size));
-                i++;
-            }
-            printf("Choose file to recover\n");
-
-            while (true) {
-                printf(">> ");
-                fgets(input, sizeof(input), stdin);
-                input[strlen(input) - 1] = '\0';
-
-                num = atoi(input);
-                if (num < 0 || num >= i) {
-                    printf("wrong input!\n");
-                    continue;
-                }
-
-                if (num == 0) return 1;
-
-                currBackup = curr->head->next;
-                for (i = 1; currBackup != NULL; currBackup = currBackup->next) {
-                    if (i == num) {
-                        if (access(currBackup->newPath, F_OK) != -1 &&
-                            !cmpHash(currBackup->newPath, currBackup->backupPath)) {
-                            printf("%s is not changed with %s\n", currBackup->backupPath, currBackup->newPath);
-                            curr = curr->next;
-                            continue;
-                        }
-
-                        if ((fd1 = open(currBackup->backupPath, O_RDONLY)) < 0) {
-                            fprintf(stderr, "ERROR: open error for %s\n", currBackup->backupPath);
-                            return 1;
-                        }
-
-                        if ((fd2 = open(currBackup->newPath, O_CREAT | O_TRUNC | O_WRONLY, 777)) < 0) {
-                            fprintf(stderr, "ERROR: open error for %s\n", currBackup->newPath);
-                            return 1;
-                        }
-
-                        while ((len = read(fd1, buf, currBackup->statbuf.st_size)) > 0) {
-                            write(fd2, buf, len);
-                        }
-
-                        if (remove(currBackup->backupPath)) {
-                            fprintf(stderr, "ERROR: remove error for %s\n", currBackup->backupPath);
-                        }
-
-                        printf("\"%s\" backup recover to \"%s\"\n", currBackup->backupPath, currBackup->newPath);
-                        break;
-                    }
-                    i++;
-                }
-                break;
-            }
-        }
-        curr = curr->next;
-    }
+    return 0;
 }
 
 int RecoverCommand(command_parameter *parameter) {
@@ -580,7 +452,7 @@ int RecoverCommand(command_parameter *parameter) {
             mkdir(tmpPath, 0777);
     }
 
-    if (parameter->commandopt & OPT_R) {
+    if (parameter->commandopt & (OPT_R|OPT_D)) {
         mainDirList = (dirList *) malloc(sizeof(dirList));
         dirNode *head = (dirNode *) malloc(sizeof(dirNode));
         mainDirList->head = head;
@@ -593,7 +465,7 @@ int RecoverCommand(command_parameter *parameter) {
         mainDirList->tail = curr;
 
         while (curr != NULL) {
-            RecoverDir(curr->path, curr->backupPath, curr->newPath);
+            RecoverDir(curr->path, curr->newPath, parameter->commandopt);
             curr = curr->next;
         }
     } else {
