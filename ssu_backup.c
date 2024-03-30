@@ -35,10 +35,10 @@ void print_tree(int height, char *isLastDir) {
             if (isLastDir[i] == 0)   //마지막 원소가 아니었다면 잇기
                 printf("│");
             else {
-                if (!i) { printf("%d.", ++treecnt); }//숫자 자릿수때문에 밀리는거 \b로 처리하렴
+                if (!i) { printf("%3d.", ++treecnt); }//숫자 자릿수때문에 밀리는거 \b로 처리하렴
                 printf(" ");
             }
-            printf("\t");
+            printf("   ");
         }
         if (i != lastIdx) {
             printf("├─ %s\n", namelist[i]->d_name); //밑에 자식 잇기
@@ -1293,45 +1293,36 @@ int Prompt(int argcnt, char **arglist) {
         CommandExec(parameter);
 
     } else if (command & CMD_SYS) {
-        if (argcnt < 2) {
-            printf("%s\n", homePATH);
-
-            char arr[4096];
-            print_tree(1, arr);
-        } else {
+        char treePATH[STRMAX];
+        getcwd(treePATH, PATHMAX);
+        if (argcnt >= 2) {
             chdir(arglist[1]);
-
-            char treePATH[STRMAX];
-            getcwd(treePATH, PATHMAX);
-
-            sprintf(treelist[treelistcnt++], "%s", treePATH);
-            printf("%d. %s\n", treelistcnt - 1, treePATH);
-            print_tree(1, treePATH);
-            chdir(homePATH);
-            for (int i = 0;; i++) {
-                scanf("%s", input[i]);
-                a = getchar();
-                if (a == '\n') {
-                    a = i + 1;
-                    break;
-                }
+        }
+        sprintf(treelist[treelistcnt++], "%s", treePATH);
+        printf("%3d. %s\n", treelistcnt - 1, treePATH);
+        print_tree(1, treePATH);
+        chdir(homePATH);
+        for (int i = 0;; i++) {
+            scanf("%s", input[i]);
+            a = getchar();
+            if (a == '\n') {
+                a = i + 1;
+                break;
             }
-            char **argv = malloc(sizeof(char *) * (a + 1));
-            for (int i = 0; i < a; i++) argv[i] = input[i];
-            argv[a] = 0;
+        }
+        char **argv = malloc(sizeof(char *) * (a + 1));
+        for (int i = 0; i < a; i++) argv[i] = input[i];
+        argv[a] = 0;
 
-            if (atoi(argv[1]) > treecnt || atoi(argv[1]) < 0) {
-                fprintf(stderr, "Invalid number\n");
-                return -1;
-            }strcpy(argv[1], treelist[atoi(argv[1])]);
-            if (!strcmp("vi", argv[0]) || !strcmp("vim", argv[0])) {
-                SystemExec((int) a, argv);
-            }
-            if (!strcmp("rm", argv[0])) {
-                //RemoveFile(argv[1],0);
-                ParameterInit(&parameter);
-
-            }
+        if (atoi(argv[1]) > treecnt || atoi(argv[1]) < 0) {
+            fprintf(stderr, "Invalid number\n");
+            return -1;
+        }strcpy(argv[1], treelist[atoi(argv[1])]);
+        if (!strcmp("vi", argv[0]) || !strcmp("vim", argv[0])) {
+            SystemExec((int) a, argv);
+        }
+        if (!strcmp("exit", argv[0])) {
+            exit(0);
         }
     } else if (!command) {
         fprintf(stderr, "ERROR: invalid command -- '%s'\n./ssu_backup help : show commands for program\n", arglist[0]);
