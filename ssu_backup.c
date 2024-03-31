@@ -430,8 +430,22 @@ int RecoverCommand(command_parameter *parameter) {
     int i;
 
     strcpy(originPath, parameter->filename);
-
     sprintf(backupPath, "%s%s", backupPATH, originPath + strlen(homePATH));//filepath ==
+
+    if (lstat(originPath, &statbuf) < 0) {
+        fprintf(stderr, "ERROR: lstat error for %s\n", originPath);
+        return 1;
+    }
+    if (!S_ISREG(statbuf.st_mode) && !S_ISDIR(statbuf.st_mode)) {
+        fprintf(stderr, "ERROR: %s is not directory or regular file\n", originPath);
+        return -1;
+    }
+
+    if (S_ISDIR(statbuf.st_mode) && !(parameter->commandopt & OPT_R) && !(parameter->commandopt & OPT_D)) {
+        fprintf(stderr, "ERROR: %s is a directory\n - use \'-r, -d\' option or input in file path.\n", originPath);
+        return -1;
+    }
+
     if (parameter->commandopt & OPT_N) {
         strcpy(newPath, parameter->tmpname);
     } else {
@@ -453,6 +467,9 @@ int RecoverCommand(command_parameter *parameter) {
     }
 
     if (parameter->commandopt & (OPT_R|OPT_D)) {
+        if (S_ISREG(statbuf.st_mode)) {
+            fprintf(stderr, "ERROR: %s is not directory.\n", originPath);
+        }
         mainDirList = (dirList *) malloc(sizeof(dirList));
         dirNode *head = (dirNode *) malloc(sizeof(dirNode));
         mainDirList->head = head;
@@ -729,6 +746,19 @@ int RemoveCommand(command_parameter *parameter) {
     strcpy(originPath, parameter->filename);
     sprintf(backupPath, "%s%s", backupPATH, originPath + strlen(homePATH));
 
+    if (lstat(originPath, &statbuf) < 0) {
+        fprintf(stderr, "ERROR: lstat error for %s\n", originPath);
+        return 1;
+    }
+    if (!S_ISREG(statbuf.st_mode) && !S_ISDIR(statbuf.st_mode)) {
+        fprintf(stderr, "ERROR: %s is not directory or regular file\n", originPath);
+        return -1;
+    }
+
+    if (S_ISDIR(statbuf.st_mode) && !(parameter->commandopt & OPT_R) && !(parameter->commandopt & OPT_D)) {
+        fprintf(stderr, "ERROR: %s is a directory\n - use \'-r, -d\' option or input in file path.\n", originPath);
+        return -1;
+    }
     if (parameter->commandopt & (OPT_R|OPT_D)) {
         flag = 1;
     }
@@ -736,7 +766,12 @@ int RemoveCommand(command_parameter *parameter) {
     if (flag == 0) {
         RemoveFile(originPath, parameter->commandopt);
     } else {
-        RemoveAll(originPath, flag, parameter->commandopt);
+        if (S_ISREG(statbuf.st_mode)) {
+            if (parameter->commandopt & OPT_R || parameter->commandopt & OPT_D) {
+                fprintf(stderr, "ERROR: %s is not directory\n", originPath);
+                return -1;
+            }
+        }RemoveAll(originPath, flag, parameter->commandopt);
     }
     RemoveDirch(backupPATH);
     return 0;
@@ -919,6 +954,10 @@ int AddCommand(command_parameter *parameter) {
         mkdir(tmpdir, 0777);
 
     if (S_ISREG(statbuf.st_mode)) {
+        if(parameter->commandopt&OPT_R || parameter->commandopt&OPT_D){
+            fprintf(stderr, "ERROR: %s is not directory\n", originPath);
+            exit(1);
+        }
         BackupFile(originPath, date, parameter->commandopt);
     } else if (S_ISDIR(statbuf.st_mode)) {
         mainDirList = (dirList *) malloc(sizeof(dirList));
@@ -937,6 +976,7 @@ int AddCommand(command_parameter *parameter) {
             curr = curr->next;
         }
     }
+    RemoveDirch(backupPATH);
     return 0;
 }
 
@@ -1040,7 +1080,7 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
             if (ConvertPath(arglist[1], parameter->filename) != 0) {
                 fprintf(stderr, "ERROR: \'%s\' is not exist\n", parameter->filename);
                 return -1;
-            }printf("%s\n", parameter->filename);
+            }
             if (strncmp(parameter->filename, homePATH, strlen(homePATH))
                 || !strcmp(parameter->filename, homePATH)) {
                 fprintf(stderr, "ERROR: path must be in user directory\n - \'%s\' is not in user directory.\n",
@@ -1334,9 +1374,9 @@ void Init() {
     backuplist = (timeList *) malloc(sizeof(timeList));
 
     getcwd(exePATH, PATHMAX);
-    sprintf(homePATH, "%s", getenv("HOME"));
+    strcpy(homePATH, getenv("HOME"));
     //strcpy(N_path,homePATH);
-    sprintf(backupPATH, "%s/backup", getenv("HOME"));
+    snprintf(backupPATH,strlen(homePATH)+8, "%s/backup", homePATH);
     snprintf(ssubak,strlen(backupPATH)+12, "%s/ssubak.log",backupPATH);
 
     if (access(backupPATH, F_OK))
