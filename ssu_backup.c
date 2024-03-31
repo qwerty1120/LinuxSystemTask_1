@@ -243,7 +243,7 @@ int RecoverFile(char *path, char *newPath, int commandopt) {
         return 1;
     } else if (head->next->next == NULL) {
         if (access(newPath, F_OK) != -1 && !cmpHash(newPath, head->next->path)) {
-            printf("%s is not changed with %s\n", head->next->path, newPath);
+            printf("\"%s\" is not changed with \"%s\"\n", head->next->path, newPath);
             return 1;
         }
 
@@ -319,7 +319,7 @@ int RecoverFile(char *path, char *newPath, int commandopt) {
             for (i = 1; curr != NULL; curr = curr->next) {
                 if (i == num) {
                     if (access(newPath, F_OK) != -1 && !cmpHash(newPath, curr->path)) {
-                        printf("%s is not changed with %s\n", curr->path, newPath);
+                        printf("\"%s\" is not changed with \"%s\"\n", curr->path, newPath);
                         return 1;
                     }
 
@@ -1213,7 +1213,6 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
                 fprintf(stderr, "Usage : %s <FILENAME> [OPTION]\n", arglist[0]);
                 return -1;
             }
-
             if (ConvertPath(arglist[1], parameter->filename) != 0) {
                 fprintf(stderr, "ERROR: %s is invalid filepath\n", parameter->filename);
                 return -1;
@@ -1353,7 +1352,7 @@ int Prompt(int argcnt, char **arglist) {
         char **argv = malloc(sizeof(char *) * (a + 1));
         for (int i = 0; i < a; i++) argv[i] = input[i];
         argv[a] = 0;
-
+        if (!strcmp("exit", argv[0])) return 0;
         if (atoi(argv[1]) > treecnt || atoi(argv[1]) < 0) {
             fprintf(stderr, "Invalid number\n");
             return -1;
@@ -1361,9 +1360,19 @@ int Prompt(int argcnt, char **arglist) {
         if (!strcmp("vi", argv[0]) || !strcmp("vim", argv[0])) {
             SystemExec((int) a, argv);
         }
-        if (!strcmp("exit", argv[0])) {
-            exit(0);
+        else if (!strcmp("rm", argv[0])) {
+            ParameterInit(&parameter);
+            parameter.command="remove";
+            ParameterProcessing(a, argv, CMD_REM, &parameter);
+            RemoveCommand(&parameter);
         }
+        else if (!strcmp("rc", argv[0])) {
+            ParameterInit(&parameter);
+            parameter.command="recover";
+            ParameterProcessing(a, argv, CMD_REC, &parameter);
+            RecoverCommand(&parameter);
+        }
+        else return 0;
     } else if (!command) {
         fprintf(stderr, "ERROR: invalid command -- '%s'\n./ssu_backup help : show commands for program\n", arglist[0]);
         return -1;
