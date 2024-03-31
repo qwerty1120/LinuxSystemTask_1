@@ -1332,15 +1332,31 @@ int Prompt(int argcnt, char **arglist) {
         CommandExec(parameter);
 
     } else if (command & CMD_SYS) {
-        char treePATH[STRMAX];
-        getcwd(treePATH, PATHMAX);
-        if (argcnt >= 2) {
-            chdir(arglist[1]);
+        char treePATH[STRMAX]={0};
+        int treech=0;
+        if (argcnt == 2) {
+            ConvertPath(arglist[1],treePATH);
+            if(access(treePATH,F_OK)) return -1;
+            struct stat treebuf;
+            if (lstat(treePATH, &treebuf) < 0){
+                fprintf(stderr, "ERROR : lstat error for %s\n", treePATH);
+                return -1;
+            }
+            if(S_ISDIR(treebuf.st_mode)) chdir(treePATH);
+            else if(S_ISREG(treebuf.st_mode)){
+                sprintf(treelist[treelistcnt++], "%s", treePATH);
+                printf("%3d. %s\n  >> ", treelistcnt - 1, treePATH);
+                treech=1;
+            }
         }
-        sprintf(treelist[treelistcnt++], "%s", treePATH);
-        printf("%3d. %s\n", treelistcnt - 1, treePATH);
-        print_tree(1, treePATH);
-        chdir(homePATH);
+        else if(argcnt!=1) return -1;
+        else strcpy(treePATH, homePATH);
+        if(!treech) {
+            sprintf(treelist[treelistcnt++], "%s", treePATH);
+            printf("%3d. %s\n", treelistcnt - 1, treePATH);
+            print_tree(1, treePATH);
+            chdir(homePATH);
+        }
         for (int i = 0;; i++) {
             scanf("%s", input[i]);
             a = getchar();
@@ -1352,7 +1368,7 @@ int Prompt(int argcnt, char **arglist) {
         char **argv = malloc(sizeof(char *) * (a + 1));
         for (int i = 0; i < a; i++) argv[i] = input[i];
         argv[a] = 0;
-        if (!strcmp("exit", argv[0])) return 0;
+        if (!strcmp("exit", argv[0])||a<2) return 0;
         if (atoi(argv[1]) > treecnt || atoi(argv[1]) < 0) {
             fprintf(stderr, "Invalid number\n");
             return -1;
