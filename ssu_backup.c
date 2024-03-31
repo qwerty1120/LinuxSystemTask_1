@@ -469,6 +469,7 @@ int RecoverCommand(command_parameter *parameter) {
     if (parameter->commandopt & (OPT_R|OPT_D)) {
         if (S_ISREG(statbuf.st_mode)) {
             fprintf(stderr, "ERROR: %s is not directory.\n", originPath);
+            return -1;
         }
         mainDirList = (dirList *) malloc(sizeof(dirList));
         dirNode *head = (dirNode *) malloc(sizeof(dirNode));
@@ -526,7 +527,6 @@ int RemoveFile(char *path, int commandopt) {
                 tmpPath[strlen(logcurr->backuppath)] = 0;
 
                 if (lstat(tmpPath, &tmpbuf) < 0) {
-                    //fprintf(stderr, "ERROR: lstat error for %s\n", tmpPath);
                     continue;
                 }
                 fileNode *new = (fileNode *) malloc(sizeof(fileNode));
@@ -956,7 +956,7 @@ int AddCommand(command_parameter *parameter) {
     if (S_ISREG(statbuf.st_mode)) {
         if(parameter->commandopt&OPT_R || parameter->commandopt&OPT_D){
             fprintf(stderr, "ERROR: %s is not directory\n", originPath);
-            exit(1);
+            return -1;
         }
         BackupFile(originPath, date, parameter->commandopt);
     } else if (S_ISDIR(statbuf.st_mode)) {
@@ -1316,8 +1316,12 @@ int Prompt(int argcnt, char **arglist) {
     } else if (!strcmp(arglist[0], commanddata[5])) {
         command = CMD_SYS;
     } else if (!strcmp(arglist[0], commanddata[6])) {
-        if (argcnt - 1) help_opt(arglist[1]);
-        else help();
+        if (argcnt==2) help_opt(arglist[1]);
+        else if(argcnt==1)help();
+        else {
+            fprintf(stderr, "Too many argument\n");
+            return -1;
+        }
         return 0;
     } else if (atoi(arglist[0]) - hash) {
         command = NOT_CMD;
@@ -1388,7 +1392,11 @@ int Prompt(int argcnt, char **arglist) {
             ParameterProcessing(a, argv, CMD_REC, &parameter);
             RecoverCommand(&parameter);
         }
-        else return 0;
+        else{
+            fprintf(stderr, "Invalid command\n");
+            return -1;
+        }
+        return 0;
     } else if (!command) {
         fprintf(stderr, "ERROR: invalid command -- '%s'\n./ssu_backup help : show commands for program\n", arglist[0]);
         return -1;
