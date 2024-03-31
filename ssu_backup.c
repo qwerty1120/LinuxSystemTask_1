@@ -394,6 +394,9 @@ int RecoverDir(char *path, char *newPath, int command_opt) {
             Newbuf[j]='/';
         }
     }
+    if(command_opt&OPT_N)
+        if (access(newPath, F_OK))
+            mkdir(newPath, 0777);
     if (lstat(path, &statbuf) < 0) {
         fprintf(stderr, "Usage : remove <FILENAME> [OPTION]\n");
         return 1;
@@ -414,6 +417,7 @@ int RecoverDir(char *path, char *newPath, int command_opt) {
                 RecoverDir(tmpPath, tnpPath, command_opt & (OPT_R|OPT_L));
         }
     } else {
+        printf("%s", newPath);
         RecoverFile(path, newPath, command_opt);
     }
     return 0;
@@ -936,7 +940,7 @@ int AddCommand(command_parameter *parameter) {
     }
 
     if (S_ISDIR(statbuf.st_mode) && !(parameter->commandopt & OPT_R) && !(parameter->commandopt & OPT_D)) {
-        fprintf(stderr, "ERROR: %s is a directory\n - use \'-r\' option or input in file path.\n", originPath);
+        fprintf(stderr, "ERROR: %s is a directory\n - use \'-r or -d\' option or input in file path.\n", originPath);
         return -1;
     }
 
@@ -1229,7 +1233,8 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
 
             while ((option = getopt(argcnt, arglist, "drn:l")) != -1) {
                 if (option != 'r' && option != 'n' && option != 'd' && option != 'l') {
-                    fprintf(stderr, "ERROR: unknown option %c\n", optopt);
+                    if(optopt=='n')fprintf(stderr, "N option's NewPath Empty\n");
+                    else fprintf(stderr, "ERROR: unknown option %c\n", optopt);
                     return -1;
                 }
 
@@ -1246,14 +1251,14 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
                     parameter->commandopt |= OPT_R;
                 }
                 if (option == 'l') {
-                    if (parameter->commandopt & OPT_R) {
+                    if (parameter->commandopt & OPT_L) {
                         fprintf(stderr, "ERROR: duplicate option -%c\n", option);
                         return -1;
                     }
                     parameter->commandopt |= OPT_L;
                 }
                 if (option == 'd') {
-                    if (parameter->commandopt & OPT_R) {
+                    if (parameter->commandopt & OPT_D) {
                         fprintf(stderr, "ERROR: duplicate option -%c\n", option);
                         return -1;
                     }
@@ -1356,6 +1361,7 @@ int Prompt(int argcnt, char **arglist) {
         else if(argcnt!=1) return -1;
         else strcpy(treePATH, homePATH);
         if(!treech) {
+            chdir(backupPATH);
             sprintf(treelist[treelistcnt++], "%s", treePATH);
             printf("%3d. %s\n", treelistcnt - 1, treePATH);
             print_tree(1, treePATH);
@@ -1372,7 +1378,13 @@ int Prompt(int argcnt, char **arglist) {
         char **argv = malloc(sizeof(char *) * (a + 1));
         for (int i = 0; i < a; i++) argv[i] = input[i];
         argv[a] = 0;
-        if (!strcmp("exit", argv[0])||a<2) return 0;
+        if (a<2){
+            if(!strcmp(argv[0],"exit")) return 0;
+            else {
+                fprintf(stderr, "Wrong Command\n");
+                return -1;
+            }
+        }
         if (atoi(argv[1]) > treecnt || atoi(argv[1]) < 0) {
             fprintf(stderr, "Invalid number\n");
             return -1;
@@ -1408,7 +1420,6 @@ void Init() {
 
     getcwd(exePATH, PATHMAX);
     strcpy(homePATH, getenv("HOME"));
-    //strcpy(N_path,homePATH);
     snprintf(backupPATH,strlen(homePATH)+8, "%s/backup", homePATH);
     snprintf(ssubak,strlen(backupPATH)+12, "%s/ssubak.log",backupPATH);
 
