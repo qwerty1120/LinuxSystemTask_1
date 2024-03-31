@@ -3,17 +3,17 @@
 
 void Init();
 
-void print_tree(int height, char *isLastDir) {
+void list_tree(int height, char *isLastDir) {//list명령어에서 tree 출력하기
     char treePATH[STRMAX];
-
     struct dirent **namelist;
     int i, count, lastIdx, firstidx = 0;
     struct stat statbuf;
-    getcwd(treePATH, PATHMAX);
+
+    getcwd(treePATH, PATHMAX);//현재 디렉터리 받아오기
     if ((count = scandir(".", &namelist, NULL, alphasort)) == -1) {
         return;
     }
-    for (i = count - 1; i >= 0; i--) {
+    for (i = count - 1; i >= 0; i--) {//디렉터리 구성요소 체크
         if (!strcmp(".", namelist[i]->d_name) || !strcmp("..", namelist[i]->d_name)) {
             firstidx = i;
             continue;
@@ -32,33 +32,32 @@ void print_tree(int height, char *isLastDir) {
             continue;
         }
         for (int i = 0; i < height; i++) {
-            if (isLastDir[i] == 0)   //마지막 원소가 아니었다면 잇기
+            if (isLastDir[i] == 0)   //마지막 아니면 잇기
                 printf("│");
             else {
-                if (!i) { printf("%3d.", ++treecnt); }//숫자 자릿수때문에 밀리는거 \b로 처리하렴
+                if (!i) { printf("%3d.", ++treecnt); }
                 printf(" ");
             }
             printf("   ");
         }
         if (i != lastIdx) {
             printf("├─ %s\n", namelist[i]->d_name); //밑에 자식 잇기
-            isLastDir[height] = 0;  //현재 깊이에서는 마지막 자식이 아니라고 표시
+            isLastDir[height] = 0;
         } else {
-            printf("└─ %s\n", namelist[i]->d_name); //맡에 자식 잇지않기
-            isLastDir[height] = 1;  //현재 깊이에서는 마지막 자식이라고 표시
+            printf("└─ %s\n", namelist[i]->d_name);
+            isLastDir[height] = 1;
         }
 
         sprintf(treelist[treelistcnt++], "%s/%s", treePATH, namelist[i]->d_name);
-        if (S_ISDIR(statbuf.st_mode)) {   //현재 찾은 자식이 디렉토리라면
-            chdir(namelist[i]->d_name); //해당 디렉토리로 작업디렉토리 이동 후
-            print_tree(height + 1, isLastDir);  //재귀적으로 print_tree 출력 후(깊이 1 증가)
-            chdir("..");    //다시 돌아오기
+        if (S_ISDIR(statbuf.st_mode)) {   //디렉토리라면
+            chdir(namelist[i]->d_name); //작업디렉토리 이동
+            list_tree(height + 1, isLastDir);  //깊이 1 증가
+            chdir("..");  //돌아오기
         }
-
-        free(namelist[i]); //현재 자식 free시키기
+        free(namelist[i]);
     }
     free(namelist);
-    if (height == 1)printf(">> ");
+    if (height == 1)printf(">> ");// 루트 디렉터리인 경우 트리 끝을 표시
 }
 
 timeList *Gettime_list() {//경로 받기 log 보고 해당 경로와 관련있는 backup 속 dir 찾기
@@ -82,7 +81,7 @@ timeList *Gettime_list() {//경로 받기 log 보고 해당 경로와 관련있�
         exit(1);
     }
 
-    if ((fd = open(ssubak, O_RDONLY)) < 0) {
+    if ((fd = open(ssubak, O_RDONLY)) < 0) {// ssubak.log 파일 열기
         fprintf(stderr, "ERROR: open error for %s\n", filepath);
         exit(1);
     }
@@ -90,8 +89,8 @@ timeList *Gettime_list() {//경로 받기 log 보고 해당 경로와 관련있�
     if ((len = read(fd, buf, statbuf.st_size)) < 0) {
         fprintf(stderr, "read error for ssubak.log\n");
         exit(1);
-    }
-    for (int i = 0; i < statbuf.st_size; i++) {//backup recover remove 체크 안했당 ㅎㅅㅎ
+    }// ssubak.log 파일 내용 분석 및 리스트 구성
+    for (int i = 0; i < statbuf.st_size; i++) {
         if (numch && buf[i] != ' ') {
             number[num++] = buf[i];
         } else if (numch) {
@@ -105,7 +104,7 @@ timeList *Gettime_list() {//경로 받기 log 보고 해당 경로와 관련있�
             listpath[path] = numpath = 0;
             path = 0;
             i++;
-            if (buf[i + 1] == 'r')rech = 1;//아마 여기 중간에 backup인지 remove인지 체크->DONE
+            if (buf[i + 1] == 'r')rech = 1;//backup인지 remove인지 체크
 
             while (buf[i++] != '\"');
             while (buf[i] != '\"') {
@@ -116,6 +115,7 @@ timeList *Gettime_list() {//경로 받기 log 보고 해당 경로와 관련있�
             while (buf[i++] != '\n');
             numch = 1;
             i--;
+            // 백업된 디렉터리를 리스트에 추가
             if (!rech) {
                 timeList *new = (timeList *) malloc(sizeof(timeList));
                 new->next = NULL;
@@ -126,8 +126,8 @@ timeList *Gettime_list() {//경로 받기 log 보고 해당 경로와 관련있�
                 curr->next = new;
                 curr = curr->next;
                 curr->next = NULL;
-            } else {//@@@@@ recover remove일때 리스트에서 빼는거 안했다리
-                curr = head;
+            } else {
+                curr = head;// remove, recover인 경우 해당 백업 디렉터리 제거
                 while (1) {
                     curr = curr->next;
                     if (!strcmp(curr->dirtime, number) && !strcmp(curr->backuppath, listpath) &&
@@ -148,7 +148,6 @@ timeList *Gettime_list() {//경로 받기 log 보고 해당 경로와 관련있�
                             curr->next->prev = curr->prev;
                             curr->prev->next = curr->next;
                         }
-                        //free(curr);
                         rech = 0;
                         break;
                     }
@@ -189,7 +188,7 @@ int RecoverFile(char *path, char *newPath, int commandopt) {
     char ch=0;
 
     strcpy(Newbuf, newPath);
-    for(int j=0;newPath[j]!=0;j++){
+    for(int j=0;newPath[j]!=0;j++){// 디렉터리가 없으면 생성
         if(newPath[j]=='/') {
             Newbuf[j] = 0;
             if(access(Newbuf,F_OK)){
@@ -205,7 +204,7 @@ int RecoverFile(char *path, char *newPath, int commandopt) {
     strcpy(filename, filepath + idx + 1);
     filepath[idx] = '\0';
 
-    if (logcurr->next != NULL) {
+    if (logcurr->next != NULL) {// 로그 리스트를 확인하여 백업된 파일의 정보를 파일 노드에 추가
         while (1) {
             logcurr = logcurr->next;
             if (!strcmp(logcurr->path, path)) {
@@ -213,7 +212,6 @@ int RecoverFile(char *path, char *newPath, int commandopt) {
                 tmpPath[strlen(logcurr->backuppath)] = 0;
 
                 if (lstat(tmpPath, &tmpbuf) < 0) {
-                    //fprintf(stderr, "ERROR: lstat error for %s\n", tmpPath);
                     continue;
                 }
                 fileNode *new = (fileNode *) malloc(sizeof(fileNode));
@@ -228,7 +226,7 @@ int RecoverFile(char *path, char *newPath, int commandopt) {
         printf("backup dir is empty.");
         return 0;
     }
-    if(commandopt & OPT_L){
+    if(commandopt & OPT_L){// OPT_L 옵션이 설정된 경우 가장 최근 백업 파일 선택
         curr=head;
         if (head->next == NULL) {
             printf("no backup file(s) of \"%s\"\n", path);
@@ -241,7 +239,7 @@ int RecoverFile(char *path, char *newPath, int commandopt) {
     if (head->next == NULL) {
         printf("no backup file(s) of \"%s\"\n", path);
         return 1;
-    } else if (head->next->next == NULL) {
+    } else if (head->next->next == NULL) { // 백업 파일이 하나만 있는 경우
         if (access(newPath, F_OK) != -1 && !cmpHash(newPath, head->next->path)) {
             printf("\"%s\" is not changed with \"%s\"\n", head->next->path, newPath);
             return 1;
@@ -277,7 +275,7 @@ int RecoverFile(char *path, char *newPath, int commandopt) {
             fprintf(stderr, "ERROR: open error for %s\n",ssubak);
             return 1;
         }
-        write(log_fd, logpath, len);//작성 @@@ 에러 체크 필요
+        write(log_fd, logpath, len);
         close(log_fd);
 
         strcpy(file_backuppath, head->next->path);
@@ -290,7 +288,7 @@ int RecoverFile(char *path, char *newPath, int commandopt) {
         if (cnt < 3) remove(file_backuppath);
 
         free(head);
-    } else {
+    } else {// 백업 파일이 여러 개 있는 경우
         printf("backup files of \"%s\"\n", path);
         printf("0. exit\n");
         curr = head->next;
@@ -353,7 +351,7 @@ int RecoverFile(char *path, char *newPath, int commandopt) {
                         fprintf(stderr, "ERROR: open error for %s\n",ssubak);
                         return 1;
                     }
-                    write(log_fd, logpath, len);//작성 @@@ 에러 체크 필요
+                    write(log_fd, logpath, len);
                     close(log_fd);
 
                     strcpy(file_backuppath, curr->path);
@@ -394,7 +392,7 @@ int RecoverDir(char *path, char *newPath, int command_opt) {
             Newbuf[j]='/';
         }
     }
-    if(command_opt&OPT_N)
+    if(command_opt&OPT_N)// OPT_N 옵션이 설정되어 있고 새로운 경로가 없으면 끝까지 생성
         if (access(newPath, F_OK))
             mkdir(newPath, 0777);
     if (lstat(path, &statbuf) < 0) {
@@ -408,13 +406,13 @@ int RecoverDir(char *path, char *newPath, int command_opt) {
             return 1;
         }
 
-        for (i = 0; i < cnt; i++) {
+        for (i = 0; i < cnt; i++) {// 디렉터리 내의 모든 파일 및 디렉터리에 대해 재귀적으로 복구 수행
             if (!strcmp(namelist[i]->d_name, ".") || !strcmp(namelist[i]->d_name, "..")) continue;
 
             sprintf(tmpPath, "%s/%s", path, namelist[i]->d_name);
             sprintf(tnpPath, "%s/%s", newPath, namelist[i]->d_name);
-            if(command_opt & (OPT_R | OPT_D))
-                RecoverDir(tmpPath, tnpPath, command_opt & (OPT_R|OPT_L));
+            if(command_opt & (OPT_R | OPT_D))// 재귀적으로 디렉터리 복구 수행
+                RecoverDir(tmpPath, tnpPath, command_opt & (OPT_R|OPT_L));//D는 한번 시행 후 삭제
         }
     } else {
         printf("%s", newPath);
@@ -434,7 +432,7 @@ int RecoverCommand(command_parameter *parameter) {
     int i;
 
     strcpy(originPath, parameter->filename);
-    sprintf(backupPath, "%s%s", backupPATH, originPath + strlen(homePATH));//filepath ==
+    sprintf(backupPath, "%s%s", backupPATH, originPath + strlen(homePATH));//==filepath
 
     if (lstat(originPath, &statbuf) < 0) {
         fprintf(stderr, "ERROR: lstat error for %s\n", originPath);
@@ -444,7 +442,7 @@ int RecoverCommand(command_parameter *parameter) {
         fprintf(stderr, "ERROR: %s is not directory or regular file\n", originPath);
         return -1;
     }
-
+    // 디렉터리 옵션이 없는 경우 오류 처리
     if (S_ISDIR(statbuf.st_mode) && !(parameter->commandopt & OPT_R) && !(parameter->commandopt & OPT_D)) {
         fprintf(stderr, "ERROR: %s is a directory\n - use \'-r, -d\' option or input in file path.\n", originPath);
         return -1;
@@ -474,7 +472,7 @@ int RecoverCommand(command_parameter *parameter) {
         if (S_ISREG(statbuf.st_mode)) {
             fprintf(stderr, "ERROR: %s is not directory.\n", originPath);
             return -1;
-        }
+        }// 메인 디렉터리 리스트 초기화
         mainDirList = (dirList *) malloc(sizeof(dirList));
         dirNode *head = (dirNode *) malloc(sizeof(dirNode));
         mainDirList->head = head;
@@ -486,7 +484,7 @@ int RecoverCommand(command_parameter *parameter) {
         curr = new;
         mainDirList->tail = curr;
 
-        while (curr != NULL) {
+        while (curr != NULL) {// 각 디렉터리에 대해 복구 수행
             RecoverDir(curr->path, curr->newPath, parameter->commandopt);
             curr = curr->next;
         }
@@ -523,7 +521,7 @@ int RemoveFile(char *path, int commandopt) {
     strcpy(filename, filepath + idx + 1);
     filepath[idx] = '\0';
 
-    if (logcurr->next != NULL) {
+    if (logcurr->next != NULL) {// 백업 로그에서 해당 파일을 찾아 파일 노드에 추가
         while (1) {
             logcurr = logcurr->next;
             if (!strcmp(logcurr->path, originPath)) {
@@ -548,14 +546,14 @@ int RemoveFile(char *path, int commandopt) {
 
     curr = head->next;
     if(commandopt & OPT_A){
-        while(curr!=NULL){
+        while(curr!=NULL){// 모든 백업 파일을 삭제하고 로그를 기록
             strcpy(date, curr->path + (strlen(backupPATH)) + 1);
             date[strlen(date) - strlen(filename) - 1] = 0;
 
             strcpy(file_backuppath, curr->path);
             file_backuppath[strlen(curr->path) - strlen(filename) - 1] = 0;//dir 이름
 
-            printf("\"%s\" removed by \"%s\"\n", curr->path, originPath);//log써야함
+            printf("\"%s\" removed by \"%s\"\n", curr->path, originPath);
             remove(curr->path);
 
             if ((cnt = scandir(file_backuppath, &namelist, NULL, alphasort)) == -1) {
@@ -572,7 +570,7 @@ int RemoveFile(char *path, int commandopt) {
                 fprintf(stderr, "ERROR: open error for %s\n", ssubak);
                 return 1;
             }
-            write(log_fd, logpath, len);//작성 @@@ 에러 체크 필요
+            write(log_fd, logpath, len);
             close(log_fd);
             curr=curr->next;
         }
@@ -582,7 +580,7 @@ int RemoveFile(char *path, int commandopt) {
     if (head->next == NULL) {
         printf("no backup file(s) of \"%s\"\n", originPath);
         return 1;
-    } else if (head->next->next == NULL) {
+    } else if (head->next->next == NULL) {// 백업 파일 삭제 및 로그 기록
 
         strcpy(file_backuppath, head->next->path);
         file_backuppath[strlen(head->next->path) - strlen(filename) - 1] = 0;//dir 이름
@@ -598,7 +596,7 @@ int RemoveFile(char *path, int commandopt) {
         if (cnt < 3) remove(file_backuppath);
         strcpy(date, head->next->path + (strlen(backupPATH)) + 1);
         date[strlen(date) - strlen(filename) - 1] = 0;
-        printf("\"%s\" removed by \"%s\"\n", head->next->path, originPath);//이거 log에도 써야함
+        printf("\"%s\" removed by \"%s\"\n", head->next->path, originPath);
 
         sprintf(logpath, "%s : \"%s\" removed by \"%s\"\n", date, head->next->path, originPath);
         len = strlen(date) + strlen(head->next->path) + strlen(originPath) + 20;
@@ -608,10 +606,10 @@ int RemoveFile(char *path, int commandopt) {
             fprintf(stderr, "ERROR: open error for %s\n",ssubak);
             return 1;
         }
-        write(log_fd, logpath, len);//작성 @@@ 에러 체크 필요
+        write(log_fd, logpath, len);
         close(log_fd);
         free(head);
-    } else {
+    } else {// 사용자가 삭제할 백업 파일을 선택하고 삭제 후 로그 기록
         printf("backup files of \"%s\"\n", originPath);
         printf("0. exit\n");
         curr = head->next;
@@ -649,10 +647,10 @@ int RemoveFile(char *path, int commandopt) {
                         return 1;
                     }
                     if (cnt < 3) remove(file_backuppath);
-                    strcpy(date, curr->path + (strlen(backupPATH)) + 1);
+                    strcpy(date, curr->path + (strlen(backupPATH)) + 1);//시간데이터 추출
                     date[strlen(date) - strlen(filename) - 1] = 0;
 
-                    printf("\"%s\" removed by \"%s\"\n", curr->path, originPath);//log써야함
+                    printf("\"%s\" removed by \"%s\"\n", curr->path, originPath);
 
                     sprintf(logpath, "%s : \"%s\" removed by \"%s\"\n", date, curr->path, originPath);
                     len = strlen(date) + strlen(curr->path) + strlen(originPath) + 20;
@@ -662,7 +660,7 @@ int RemoveFile(char *path, int commandopt) {
                         fprintf(stderr, "ERROR: open error for %s\n", ssubak);
                         return 1;
                     }
-                    write(log_fd, logpath, len);//작성 @@@ 에러 체크 필요
+                    write(log_fd, logpath, len);
                     close(log_fd);
                     free(curr);
                     break;
@@ -694,7 +692,7 @@ int RemoveAll(char *path, int flag, int command_opt) {
             return 1;
         }
 
-        for (i = 0; i < cnt; i++) {
+        for (i = 0; i < cnt; i++) {// 현재 디렉터리나 상위 디렉터리인 경우 넘어감
             if (!strcmp(namelist[i]->d_name, ".") || !strcmp(namelist[i]->d_name, "..")) continue;
 
             sprintf(tmpPath, "%s/%s", path, namelist[i]->d_name);
@@ -702,7 +700,7 @@ int RemoveAll(char *path, int flag, int command_opt) {
             if(command_opt & (OPT_R | OPT_D))
                 RemoveAll(tmpPath, flag, command_opt & (OPT_R | OPT_A));
         }
-    } else {
+    } else {// 파일인 경우 RemoveFile 함수 호출
         RemoveFile(path, command_opt);
     }
     return 0;
@@ -721,7 +719,7 @@ int RemoveDirch(char *path){
             fprintf(stderr, "ERROR: scandir error for %s\n", path);
             return 1;
         }
-        for (i = 0; i < cnt; i++) {
+        for (i = 0; i < cnt; i++) {// 현재 디렉터리나 상위 디렉터리인 경우 넘어감
             if (!strcmp(namelist[i]->d_name, ".") || !strcmp(namelist[i]->d_name, "..")) continue;
             sprintf(tmpPath, "%s/%s", path, namelist[i]->d_name);
             RemoveDirch(tmpPath);
@@ -729,7 +727,7 @@ int RemoveDirch(char *path){
         if ((cnt = scandir(path, &namelist, NULL, alphasort)) == -1) {
             fprintf(stderr, "ERROR: scandir error for %s\n", path);
             return 1;
-        }
+        }// 디렉터리 내에 더 이상 항목이 없는 경우 디렉터리 삭제
         if(cnt<3)remove(path);
     }
     return 0;
@@ -758,7 +756,7 @@ int RemoveCommand(command_parameter *parameter) {
         fprintf(stderr, "ERROR: %s is not directory or regular file\n", originPath);
         return -1;
     }
-
+    // 디렉터리인 경우 재귀적 삭제 여부 확인
     if (S_ISDIR(statbuf.st_mode) && !(parameter->commandopt & OPT_R) && !(parameter->commandopt & OPT_D)) {
         fprintf(stderr, "ERROR: %s is a directory\n - use \'-r, -d\' option or input in file path.\n", originPath);
         return -1;
@@ -766,7 +764,7 @@ int RemoveCommand(command_parameter *parameter) {
     if (parameter->commandopt & (OPT_R|OPT_D)) {
         flag = 1;
     }
-
+    // 파일 또는 디렉터리 삭제 수행
     if (flag == 0) {
         RemoveFile(originPath, parameter->commandopt);
     } else {
@@ -808,15 +806,15 @@ int BackupFile(char *path, char *date, int commandopt) {
 
     strcpy(filename, filepath + idx + 1);
     filepath[idx] = '\0';
-    if(!commandopt || (commandopt == OPT_Y))strcpy(recurPATH,filepath);
+    if(!commandopt || (commandopt == OPT_Y))strcpy(recurPATH,filepath);// 재귀 플래그가 설정되어 있는지 확인하고 재귀 경로 업데이트
     if (lstat(path, &statbuf) < 0) {
         fprintf(stderr, "ERROR: lstat error for %s\n", path);
         return 1;
     }
 
-    ConvertHash(path, filehash);
-    timeList *logcurr = backuplist;//(timeList *)malloc(sizeof(timeList));
-    while (!(commandopt & OPT_Y)) {
+    ConvertHash(path, filehash);//절대경로로 변환
+    timeList *logcurr = backuplist;
+    while (!(commandopt & OPT_Y)) {//백업되어있는 거 확인
         logcurr = logcurr->next;
         if (!strcmp(logcurr->path, path)) {
             strcpy(tmpPath, logcurr->backuppath);
@@ -869,7 +867,7 @@ int BackupFile(char *path, char *date, int commandopt) {
         fprintf(stderr, "ERROR: open error for %s\n", ssubak);
         return 1;
     }
-    write(log_fd, logpath, len);//작성 @@@ 에러 체크 필요
+    write(log_fd, logpath, len);
     close(log_fd);
 }
 
@@ -887,12 +885,12 @@ int BackupDir(char *path, char *date, int commandopt) {
 
     if (access(tmpdir, F_OK))
         mkdir(tmpdir, 0777);
-    if ((cnt = scandir(path, &namelist, NULL, alphasort)) == -1) {
+    if ((cnt = scandir(path, &namelist, NULL, alphasort)) == -1) {// 디렉토리 내 파일 및 서브디렉토리 스캔
         fprintf(stderr, "ERROR: scandir error for %s\n", path);
         return 1;
     }
 
-    for (int i = 0; i < cnt; i++) {
+    for (int i = 0; i < cnt; i++) { // 각 파일 및 서브디렉토리를 백업
         if (!strcmp(namelist[i]->d_name, ".") || !strcmp(namelist[i]->d_name, "..")) continue;
 
         strcpy(tmppath, path);
@@ -904,7 +902,7 @@ int BackupDir(char *path, char *date, int commandopt) {
         }
 
         if (S_ISDIR(statbuf.st_mode)&& (commandopt & OPT_R)) {
-            dirNode *new = (dirNode *) malloc(sizeof(dirNode));
+            dirNode *new = (dirNode *) malloc(sizeof(dirNode));// 디렉토리 목록에 서브디렉토리를 추가하기 위한 새 노드 생성
             strcpy(new->path, tmppath);
             mainDirList->tail->next = new;
             mainDirList->tail = mainDirList->tail->next;
@@ -934,7 +932,7 @@ int AddCommand(command_parameter *parameter) {
         return 1;
     }
 
-    if (!S_ISREG(statbuf.st_mode) && !S_ISDIR(statbuf.st_mode)) {
+    if (!S_ISREG(statbuf.st_mode) && !S_ISDIR(statbuf.st_mode)) {// 백업 대상이 디렉토리나 일반 파일이 아닌 경우 오류 처리
         fprintf(stderr, "ERROR: %s is not directory or regular file\n", originPath);
         return -1;
     }
@@ -949,7 +947,7 @@ int AddCommand(command_parameter *parameter) {
         fprintf(stderr, "ERROR: %s can't be backuped\n", originPath);
         return -1;
     }
-    sprintf(date, "%s", getDate());
+    sprintf(date, "%s", getDate());// 현재 날짜 및 시간을 가져와서 백업용 임시 디렉토리 경로 생성
     strcpy(tmpdir, backupPATH);
     strcat(tmpdir, "/");
     strcat(tmpdir, date);
@@ -963,7 +961,7 @@ int AddCommand(command_parameter *parameter) {
             return -1;
         }
         BackupFile(originPath, date, parameter->commandopt);
-    } else if (S_ISDIR(statbuf.st_mode)) {
+    } else if (S_ISDIR(statbuf.st_mode)) {// 백업 대상 디렉토리를 탐색하고 백업하는 함수 호출
         mainDirList = (dirList *) malloc(sizeof(dirList));
         dirNode *head = (dirNode *) malloc(sizeof(dirNode));
         mainDirList->head = head;
@@ -989,7 +987,7 @@ void CommandFun(char **arglist) {
     command_parameter parameter = {
             arglist[0], arglist[1], arglist[2], atoi(arglist[3])
     };
-
+    // 입력된 커맨드에 따라 적절한 함수를 할당
     if (!strcmp(parameter.command, commanddata[0])) {
         commandFun = AddCommand;
     } else if (!strcmp(parameter.command, commanddata[1])) {
@@ -998,14 +996,14 @@ void CommandFun(char **arglist) {
         commandFun = RecoverCommand;
     }
     if (commandFun(&parameter) != 0) {
-        exit(1);
+        exit(1);// 할당된 함수를 실행하고 오류가 발생한 경우 프로그램 종료
     }
 }
 
 void CommandExec(command_parameter parameter) {
     pid_t pid;
 
-    parameter.argv[0] = "command";
+    parameter.argv[0] = "command";// argv 배열의 첫 번째 인자에 프로그램명 할당
     parameter.argv[1] = (char *) malloc(sizeof(char *) * 32);
     sprintf(parameter.argv[1], "%d", hash);
 
@@ -1016,10 +1014,10 @@ void CommandExec(command_parameter parameter) {
     sprintf(parameter.argv[5], "%d", parameter.commandopt);
     parameter.argv[6] = (char *) 0;
 
-    if ((pid = fork()) < 0) {
+    if ((pid = fork()) < 0) {// fork로 자식 프로세스 생성
         fprintf(stderr, "ERROR: fork error\n");
         exit(1);
-    } else if (pid == 0) {
+    } else if (pid == 0) {// execv를 사용하여 새로운 프로세스로 전환하여 커맨드 실행
         execv(exeNAME, parameter.argv);
         exit(0);
     } else {
@@ -1030,10 +1028,10 @@ void CommandExec(command_parameter parameter) {
 void SystemExec(int argc, char **arglist) {
     pid_t pid;
     char whichPath[PATHMAX];
-
+    // 시스템 명령어의 경로 설정
     sprintf(whichPath, "/usr/bin/%s", arglist[0]);
 
-    arglist[0] = whichPath;
+    arglist[0] = whichPath;// 첫 번째 인자를 시스템 명령어의 경로로 설정
 
     if ((pid = fork()) < 0) {
         fprintf(stderr, "ERROR: fork error\n");
@@ -1046,21 +1044,7 @@ void SystemExec(int argc, char **arglist) {
     }
 }
 
-void HelpExec() {
-    pid_t pid;
-
-    if ((pid = fork()) < 0) {
-        fprintf(stderr, "ERROR: fork error\n");
-        exit(1);
-    } else if (pid == 0) {
-        execl(exeNAME, "help", (char *) 0);
-        exit(0);
-    } else {
-        pid = wait(NULL);
-    }
-}
-
-void ParameterInit(command_parameter *parameter) {
+void ParameterInit(command_parameter *parameter) {//파라미터 생성
     parameter->command = (char *) malloc(sizeof(char) * PATH_MAX);
     parameter->filename = (char *) malloc(sizeof(char) * PATH_MAX);
     parameter->tmpname = (char *) malloc(sizeof(char) * PATH_MAX);
@@ -1077,7 +1061,7 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
 
     switch (command) {
         case CMD_ADD: {
-            if (argcnt < 2) {
+            if (argcnt < 2) {// 인자 부족할 때 오류 처리
                 fprintf(stderr, "ERROR : missing operand <PATH>\n");
                 return -1;
             }
@@ -1086,7 +1070,7 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
                 return -1;
             }
             if (strncmp(parameter->filename, homePATH, strlen(homePATH))
-                || !strcmp(parameter->filename, homePATH)) {
+                || !strcmp(parameter->filename, homePATH)) {// 사용자 디렉토리 내부의 경로인지 확인
                 fprintf(stderr, "ERROR: path must be in user directory\n - \'%s\' is not in user directory.\n",
                         parameter->filename);
                 return -1;
@@ -1097,13 +1081,13 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
                 return -1;
             }
 
-            if (!S_ISREG(buf.st_mode) && !S_ISDIR(buf.st_mode)) {
+            if (!S_ISREG(buf.st_mode) && !S_ISDIR(buf.st_mode)) {// 정규 파일 또는 디렉토리인지 확인
                 fprintf(stderr, "3ERROR: %s is not regular file\n", parameter->filename);
                 return -1;
             }
 
             lastind = 2;
-
+            // 옵션 처리
             while ((option = getopt(argcnt, arglist, "rdy")) != -1) {
                 if (option != 'r'&&option != 'y'&&option != 'd') {
                     fprintf(stderr, "ERROR: unknown option %c\n", optopt);
@@ -1114,7 +1098,7 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
                     fprintf(stderr, "ERROR: wrong option input\n");
                     return -1;
                 }
-
+                // 각 옵션에 대한 처리
                 if (option == 'r') {
                     if (parameter->commandopt & OPT_R) {
                         fprintf(stderr, "ERROR: duplicate option -%c\n", option);
@@ -1140,21 +1124,21 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
                 optcnt++;
                 lastind = optind;
             }
-            if (argcnt - optcnt != 2) {
+            if (argcnt - optcnt != 2) {// 옵션 처리 후 남은 인자 확인
                 fprintf(stderr, "ERROR: argument error\n");
                 return -1;
             }
             break;
         }
         case CMD_REM: {
-            if (argcnt < 2) {
+            if (argcnt < 2) {// 인자 부족할 때 오류 처리
                 fprintf(stderr, "Usage : %s <FILENAME> [OPTION]\n", arglist[0]);
                 return -1;
             }
 
             parameter->filename = arglist[1];
             lastind = 1;
-
+            // 옵션 처리
             while ((option = getopt(argcnt, arglist, "rda")) != -1) {
                 if (option != 'r' && option != 'a' && option != 'd') {
                     fprintf(stderr, "ERROR: unknown option %c\n", optopt);
@@ -1165,7 +1149,7 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
                     fprintf(stderr, "ERROR: wrong option input\n");
                     return -1;
                 }
-
+                //각 옵션마다의 처리 == commandopt에 합산해주기
                 if (option == 'r') {
                     if (parameter->commandopt & OPT_R) {
                         fprintf(stderr, "ERROR: duplicate option -%c\n", option);
@@ -1213,7 +1197,7 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
             break;
         }
         case CMD_REC: {
-            if (argcnt < 2) {
+            if (argcnt < 2) {// 인자 부족할 때 오류 처리
                 fprintf(stderr, "Usage : %s <FILENAME> [OPTION]\n", arglist[0]);
                 return -1;
             }
@@ -1221,7 +1205,7 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
                 fprintf(stderr, "ERROR: %s is invalid filepath\n", parameter->filename);
                 return -1;
             }
-
+            // 홈 디렉토리, 백업 디렉토리 내부의 파일 경로인지 확인
             if (strncmp(parameter->filename, homePATH, strlen(homePATH))
                 || !strncmp(parameter->filename, backupPATH, strlen(backupPATH))
                 || !strcmp(parameter->filename, homePATH)) {
@@ -1230,7 +1214,7 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
             }
 
             lastind = 2;
-
+            // 옵션 처리
             while ((option = getopt(argcnt, arglist, "drn:l")) != -1) {
                 if (option != 'r' && option != 'n' && option != 'd' && option != 'l') {
                     if(optopt=='n')fprintf(stderr, "N option's NewPath Empty\n");
@@ -1242,7 +1226,7 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
                     fprintf(stderr, "ERROR: wrong option input\n");
                     return -1;
                 }
-
+                //각 옵션마다의 처리 == commandopt에 합산해주기
                 if (option == 'r') {
                     if (parameter->commandopt & OPT_R) {
                         fprintf(stderr, "ERROR: duplicate option -%c\n", option);
@@ -1280,7 +1264,7 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
                         fprintf(stderr, "ERROR: %s is invalid filepath\n", parameter->tmpname);
                         return -1;
                     }
-
+                    // 새로운 파일명의 유효성 검사
                     if (strncmp(parameter->tmpname, homePATH, strlen(homePATH))
                         || !strncmp(parameter->tmpname, backupPATH, strlen(backupPATH))
                         || !strcmp(parameter->tmpname, homePATH)) {
@@ -1294,7 +1278,7 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
                 optcnt++;
                 lastind = optind;
             }
-            if (argcnt - optcnt != 2) {
+            if (argcnt - optcnt != 2) {//남은 인자 확인
                 fprintf(stderr, "argument error\n");
                 return -1;
             }
@@ -1307,7 +1291,7 @@ int Prompt(int argcnt, char **arglist) {
     char input[100][STRMAX] = {0}, a = 0;
     int command = 0b1000000, in;
     command_parameter parameter = {(char *) 0, (char *) 0, (char *) 0, 0};
-
+    // 명령어 식별
     if (!strcmp(arglist[0], commanddata[0])) {
         command = CMD_ADD;
     } else if (!strcmp(arglist[0], commanddata[1])) {
@@ -1320,7 +1304,7 @@ int Prompt(int argcnt, char **arglist) {
         command = CMD_SYS;
     } else if (!strcmp(arglist[0], commanddata[5])) {
         command = CMD_SYS;
-    } else if (!strcmp(arglist[0], commanddata[6])) {
+    } else if (!strcmp(arglist[0], commanddata[6])) {// 'help' 명령어 처리
         if (argcnt==2) help_opt(arglist[1]);
         else if(argcnt==1)help();
         else {
@@ -1340,32 +1324,32 @@ int Prompt(int argcnt, char **arglist) {
         }
         CommandExec(parameter);
 
-    } else if (command & CMD_SYS) {
+    } else if (command & CMD_SYS) {// 'sys' 명령어 처리
         char treePATH[STRMAX]={0};
         int treech=0;
         if (argcnt == 2) {
             ConvertPath(arglist[1],treePATH);
-            if(access(treePATH,F_OK)) return -1;
+            if(access(treePATH,F_OK)) return -1;//접근 불가능하면 종료
             struct stat treebuf;
             if (lstat(treePATH, &treebuf) < 0){
                 fprintf(stderr, "ERROR : lstat error for %s\n", treePATH);
                 return -1;
             }
-            if(S_ISDIR(treebuf.st_mode)) chdir(treePATH);
-            else if(S_ISREG(treebuf.st_mode)){
+            if(S_ISDIR(treebuf.st_mode)) chdir(treePATH);//디렉테러이면 이동
+            else if(S_ISREG(treebuf.st_mode)){//파일이면 출력
                 sprintf(treelist[treelistcnt++], "%s", treePATH);
                 printf("%3d. %s\n  >> ", treelistcnt - 1, treePATH);
                 treech=1;
             }
         }
-        else if(argcnt!=1) return -1;
+        else if(argcnt!=1) return -1;//인자의 개수가 범위 밖이면 종료
         else strcpy(treePATH, homePATH);
-        if(!treech) {
+        if(!treech) {//디렉터리이거나 인자가 없었을 때 실행
             chdir(backupPATH);
             sprintf(treelist[treelistcnt++], "%s", treePATH);
             printf("%3d. %s\n", treelistcnt - 1, treePATH);
-            print_tree(1, treePATH);
-            chdir(homePATH);
+            list_tree(1, treePATH);//트리 출력
+            chdir(homePATH);//다시 돌아오기
         }
         for (int i = 0;; i++) {
             scanf("%s", input[i]);
@@ -1376,10 +1360,10 @@ int Prompt(int argcnt, char **arglist) {
             }
         }
         char **argv = malloc(sizeof(char *) * (a + 1));
-        for (int i = 0; i < a; i++) argv[i] = input[i];
+        for (int i = 0; i < a; i++) argv[i] = input[i];//이중포인터로 바꿔주기
         argv[a] = 0;
         if (a<2){
-            if(!strcmp(argv[0],"exit")) return 0;
+            if(!strcmp(argv[0],"exit")) return 0;//종료
             else {
                 fprintf(stderr, "Wrong Command\n");
                 return -1;
@@ -1389,16 +1373,16 @@ int Prompt(int argcnt, char **arglist) {
             fprintf(stderr, "Invalid number\n");
             return -1;
         }strcpy(argv[1], treelist[atoi(argv[1])]);
-        if (!strcmp("vi", argv[0]) || !strcmp("vim", argv[0])) {
+        if (!strcmp("vi", argv[0]) || !strcmp("vim", argv[0])) {//선택한 파일로 vi 실행
             SystemExec((int) a, argv);
         }
-        else if (!strcmp("rm", argv[0])) {
+        else if (!strcmp("rm", argv[0])) {//선택한 파일로 remove 실행
             ParameterInit(&parameter);
             parameter.command="remove";
             ParameterProcessing(a, argv, CMD_REM, &parameter);
             RemoveCommand(&parameter);
         }
-        else if (!strcmp("rc", argv[0])) {
+        else if (!strcmp("rc", argv[0])) {//선택한 파일로 recover 실행
             ParameterInit(&parameter);
             parameter.command="recover";
             ParameterProcessing(a, argv, CMD_REC, &parameter);
@@ -1417,43 +1401,41 @@ int Prompt(int argcnt, char **arglist) {
 
 void Init() {
     backuplist = (timeList *) malloc(sizeof(timeList));
-
+    // 실행 파일의 경로 및 홈 디렉토리 경로 설정
     getcwd(exePATH, PATHMAX);
     strcpy(homePATH, getenv("HOME"));
-    snprintf(backupPATH,strlen(homePATH)+8, "%s/backup", homePATH);
-    snprintf(ssubak,strlen(backupPATH)+12, "%s/ssubak.log",backupPATH);
+    snprintf(backupPATH,strlen(homePATH)+8, "%s/backup", homePATH);// 백업 디렉토리 경로 설정
+    snprintf(ssubak,strlen(backupPATH)+12, "%s/ssubak.log",backupPATH);// 백업 로그 파일 경로 설정
 
-    if (access(backupPATH, F_OK))
+    if (access(backupPATH, F_OK))// 백업 디렉토리가 존재하지 않을 경우 생성
         mkdir(backupPATH, 0777);
     chdir(backupPATH);
 
     int fd;
-    if ((fd = open(ssubak, O_RDWR | O_CREAT, 0777)) < 0) {
+    if ((fd = open(ssubak, O_RDWR | O_CREAT, 0777)) < 0) {// 백업 로그 파일 열기
         fprintf(stderr, "open error for %s\n", ssubak);
         exit(1);
     }
     backuplist = Gettime_list();
-    chdir(exePATH);
+    chdir(exePATH);// 실행 파일이 위치한 디렉토리로 이동
 }
 
 int main(int argc, char *argv[]) {
     Init();
-    if (!strcmp(argv[0], "command")) {
+    if (!strcmp(argv[0], "command")) {// "command"로 프로그램이 실행되었을 때
         hash = atoi(argv[1]);
 
         CommandFun(argv + 2);
-    } else if (!strcmp(argv[0], "help")) {
-        help();
     } else {
-        if (argc < 2) {
+        if (argc < 2) {// 명령어 부족 오류
             fprintf(stderr, "ERROR: wrong input.\n%s help : show commands for program\n", argv[0]);
             return -1;
         }
     }
-    strcpy(exeNAME, argv[0]);
-    hash = HASH_MD5;
+    strcpy(exeNAME, argv[0]);// 실행 파일 이름 복사
+    hash = HASH_MD5;// 해시값 설정
 
-    Prompt(argc - 1, argv + 1);
+    Prompt(argc - 1, argv + 1); // 프롬프트 함수 호출
 
     exit(0);
 }
