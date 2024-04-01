@@ -2,7 +2,7 @@
 #include "ssu_header.h"
 
 void Init();
-void treemake(){
+void treemake(){//list 트리구조를 위한 디렉터리 만드는 함수
     timeList *head = (timeList*)malloc(sizeof(timeList));
     timeList *curr = (timeList*)malloc(sizeof(timeList));
     char *buf = (char *)malloc(sizeof(char)*PATHMAX);
@@ -36,9 +36,9 @@ void list_tree(int height, char *isLastDir) {//list명령어에서 tree 출력�
     struct stat statbuf;
 
     getcwd(treePATH, PATHMAX);//현재 디렉터리 받아오기
-    sprintf(treebuf, "%s", treePATH+strlen(backupPATH)+5);
+    sprintf(treebuf, "%s", treePATH+strlen(backupPATH)+5);//tree 경로 빼기
 
-    sprintf(treePATH, "/home%s", treebuf);
+    sprintf(treePATH, "/home%s", treebuf);//tree 경로 빼기
     if ((count = scandir(".", &namelist, NULL, alphasort)) == -1) {
         return;
     }
@@ -283,29 +283,29 @@ int RecoverFile(char *path, char *newPath, int commandopt) {
             return 1;
         }
 
-        while ((len = read(fd1, buf, head->next->statbuf.st_size)) > 0) {
+        while ((len = read(fd1, buf, head->next->statbuf.st_size)) > 0) {//내용 복사
             write(fd2, buf, len);
-        }strcpy(filepath, fileswp);
+        }strcpy(filepath, fileswp);//filepath가 fd로 인해 내용변하는 오류가 있어 swap해줌
 
         if (remove(head->next->path)) {
             fprintf(stderr, "ERROR: remove error for %s", head->next->path);
         }
 
-        strcpy(date, head->next->path + strlen(backupPATH)+1);
+        strcpy(date, head->next->path + strlen(backupPATH)+1);//date 추출
         for(int k=0;k<strlen(date);k++){
             if(date[k]=='/') {date[k]=0;break;}
         }
 
         printf("\"%s\" recovered to \"%s\"\n", head->next->path, newPath);
         sprintf(logpath, "%s : \"%s\" recovered to \"%s\"\n", date, head->next->path, newPath);
-        len = strlen(date) + strlen(head->next->path) + strlen(newPath) + 22;
-        logpath[len] = 0;//todo : dir recover == log message weird;
+        len = strlen(date) + strlen(head->next->path) + strlen(newPath) + 22;//log에 쓸 내용
+        logpath[len] = 0;//todo : dir recover == log message weird;//해결함
 
         if ((log_fd = open(ssubak, O_WRONLY | O_APPEND)) < 0) {//이어서 쓸 수 있게
             fprintf(stderr, "ERROR: open error for %s\n",ssubak);
             return 1;
         }
-        write(log_fd, logpath, len);
+        write(log_fd, logpath, len);//작성
         close(log_fd);
 
         strcpy(file_backuppath, head->next->path);
@@ -346,7 +346,7 @@ int RecoverFile(char *path, char *newPath, int commandopt) {
             curr = head->next;
             for (i = 1; curr != NULL; curr = curr->next) {
                 if (i == num) {
-                    if (access(newPath, F_OK) != -1 && !cmpHash(newPath, curr->path)) {
+                    if (access(newPath, F_OK) != -1 && !cmpHash(newPath, curr->path)) {//내용 변한 정도 체크
                         printf("\"%s\" is not changed with \"%s\"\n", curr->path, newPath);
                         return 1;
                     }
@@ -361,7 +361,7 @@ int RecoverFile(char *path, char *newPath, int commandopt) {
                         return 1;
                     }
 
-                    while ((len = read(fd1, buf, curr->statbuf.st_size)) > 0) {
+                    while ((len = read(fd1, buf, curr->statbuf.st_size)) > 0) {//내용 복사
                         write(fd2, buf, len);
                     }
 
@@ -369,13 +369,13 @@ int RecoverFile(char *path, char *newPath, int commandopt) {
                         fprintf(stderr, "ERROR: remove error for %s", curr->path);
                     }
 
-                    strcpy(date, curr->path + strlen(backupPATH)+1);
+                    strcpy(date, curr->path + strlen(backupPATH)+1);//시간 추출
                     for(int k=0;k<strlen(date);k++){
                         if(date[k]=='/') {date[k]=0;break;}
                     }
 
                     printf("\"%s\" recovered to \"%s\"\n", curr->path, newPath);
-                    sprintf(logpath, "%s : \"%s\" recovered to \"%s\"\n", date, curr->path, newPath);
+                    sprintf(logpath, "%s : \"%s\" recovered to \"%s\"\n", date, curr->path, newPath);//로그 내용
                     len = strlen(date) + strlen(curr->path) + strlen(newPath) + 22;
                     logpath[len] = 0;
 
@@ -1131,7 +1131,7 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
             // 옵션 처리
             while ((option = getopt(argcnt, arglist, "rdy")) != -1) {
                 if (option != 'r'&&option != 'y'&&option != 'd') {
-                    fprintf(stderr, "ERROR: unknown option %c\n", optopt);
+                    fprintf(stderr, "ERROR: unknown option %c\nUsage : backup <PATH> [OPTION]\n", optopt);
                     return -1;
                 }
 
@@ -1182,7 +1182,7 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
             // 옵션 처리
             while ((option = getopt(argcnt, arglist, "rda")) != -1) {
                 if (option != 'r' && option != 'a' && option != 'd') {
-                    fprintf(stderr, "ERROR: unknown option %c\n", optopt);
+                    fprintf(stderr, "ERROR: unknown option %c\nUsage : remove <PATH> [OPTION]\n", optopt);
                     return -1;
                 }
 
@@ -1259,7 +1259,7 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
             while ((option = getopt(argcnt, arglist, "drn:l")) != -1) {
                 if (option != 'r' && option != 'n' && option != 'd' && option != 'l') {
                     if(optopt=='n')fprintf(stderr, "N option's NewPath Empty\n");
-                    else fprintf(stderr, "ERROR: unknown option %c\n", optopt);
+                    else fprintf(stderr, "ERROR: unknown option %c\nUsage : recover <PATH> [OPTION]\n", optopt);
                     return -1;
                 }
 
@@ -1372,7 +1372,13 @@ int Prompt(int argcnt, char **arglist) {
         strcpy(treebuf,exePATH);
         int treech=0;
         if (argcnt == 2) {
-            ConvertPath(arglist[1],treebuf);
+            ConvertPath(arglist[1],treebuf);//tree 디렉으로 패스 변경하는 과정
+            if (strncmp(treebuf, HOMEPATH, strlen(homePATH))
+                || !strncmp(treebuf, backupPATH, strlen(backupPATH))
+                || !strcmp(treebuf, HOMEPATH)) {
+                fprintf(stderr, "ERROR: %s not user directory.\n", treebuf);
+                return -1;
+            }
             sprintf(treePATH, "%s/tree/%s", backupPATH, treebuf+strlen(HOMEPATH)+1);
 
             if(access(treePATH,F_OK)) {
@@ -1417,7 +1423,7 @@ int Prompt(int argcnt, char **arglist) {
             }
         }
         char **argv = malloc(sizeof(char *) * (a + 1));
-        for (int i = 0; i < a; i++) argv[i] = input[i];//이중포인터로 바꿔주기
+        for (int i = 0; i < a; i++) argv[i] = input[i];//이중포인터로 바꿔주기 -> 했음
         argv[a] = 0;
         if (a<2){
             if(!strcmp(argv[0],"exit")) return 0;//종료
