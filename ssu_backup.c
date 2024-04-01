@@ -2,7 +2,32 @@
 #include "ssu_header.h"
 
 void Init();
-
+void treemake(){
+    timeList *head = (timeList*)malloc(sizeof(timeList));
+    timeList *curr = (timeList*)malloc(sizeof(timeList));
+    char *buf = (char *)malloc(sizeof(char)*PATHMAX);
+    char *Newbuf = (char *)malloc(sizeof(char)*PATHMAX);
+    int fd;
+    head=backuplist;
+    curr=head->next;
+    while(curr->next!=NULL){
+        curr=curr->next;
+        sprintf(buf, "%s/tree%s", backupPATH, curr->path+strlen(homePATH));
+        strcpy(Newbuf, buf);
+        for(int j=0;buf[j]!=0;j++){// 디렉터리가 없으면 생성
+            if(buf[j]=='/') {
+                Newbuf[j] = 0;
+                if(access(Newbuf,F_OK)){
+                    mkdir(Newbuf,0777);
+                }
+                Newbuf[j]='/';
+            }
+        }
+        if((fd=open(buf,O_RDONLY|O_CREAT))<0){
+            fprintf(stderr, "List Error\n");
+        }
+    }
+}
 void list_tree(int height, char *isLastDir) {//list명령어에서 tree 출력하기
     char treePATH[STRMAX];
     struct dirent **namelist;
@@ -130,8 +155,7 @@ timeList *Gettime_list() {//경로 받기 log 보고 해당 경로와 관련있�
                 curr = head;// remove, recover인 경우 해당 백업 디렉터리 제거
                 while (1) {
                     curr = curr->next;
-                    if (!strcmp(curr->dirtime, number) && !strcmp(curr->backuppath, listpath) &&
-                        !strcmp(curr->path, backpath)) {
+                    if (!strcmp(curr->dirtime, number) && !strcmp(curr->backuppath, listpath)) {
                         if (curr->prev == NULL && curr->next == NULL) {
                             curr = head;
                             curr->next = NULL;
@@ -177,6 +201,7 @@ int RecoverFile(char *path, char *newPath, int commandopt) {
     char *date = (char *) malloc(sizeof(char *) * STRMAX);
     char *logpath = (char *) malloc(sizeof(char *) * PATHMAX);
     char *file_backuppath = (char *) malloc(sizeof(char *) * STRMAX);
+    char *fileswp = (char *)malloc(sizeof(char*)*STRMAX);
     int fd1, fd2;
     char *Newbuf = (char *) malloc(sizeof(char *) * STRMAX);
     int i;
@@ -203,7 +228,7 @@ int RecoverFile(char *path, char *newPath, int commandopt) {
     for (idx = strlen(filepath) - 1; filepath[idx] != '/'; idx--);
     strcpy(filename, filepath + idx + 1);
     filepath[idx] = '\0';
-
+    strcpy(fileswp,filepath);
     if (logcurr->next != NULL) {// 로그 리스트를 확인하여 백업된 파일의 정보를 파일 노드에 추가
         while (1) {
             logcurr = logcurr->next;
@@ -257,19 +282,21 @@ int RecoverFile(char *path, char *newPath, int commandopt) {
 
         while ((len = read(fd1, buf, head->next->statbuf.st_size)) > 0) {
             write(fd2, buf, len);
-        }
+        }strcpy(filepath, fileswp);
 
         if (remove(head->next->path)) {
             fprintf(stderr, "ERROR: remove error for %s", head->next->path);
         }
 
         strcpy(date, head->next->path + strlen(backupPATH)+1);
-        date[strlen(date) - strlen(filename) - 1] = 0;
+        for(int k=0;k<strlen(date);k++){
+            if(date[k]=='/') {date[k]=0;break;}
+        }
 
         printf("\"%s\" recovered to \"%s\"\n", head->next->path, newPath);
         sprintf(logpath, "%s : \"%s\" recovered to \"%s\"\n", date, head->next->path, newPath);
         len = strlen(date) + strlen(head->next->path) + strlen(newPath) + 22;
-        logpath[len] = 0;
+        logpath[len] = 0;//todo : dir recover == log message weird;
 
         if ((log_fd = open(ssubak, O_WRONLY | O_APPEND)) < 0) {//이어서 쓸 수 있게
             fprintf(stderr, "ERROR: open error for %s\n",ssubak);
@@ -340,7 +367,9 @@ int RecoverFile(char *path, char *newPath, int commandopt) {
                     }
 
                     strcpy(date, curr->path + strlen(backupPATH)+1);
-                    date[strlen(date) - strlen(filename) - 1] = 0;
+                    for(int k=0;k<strlen(date);k++){
+                        if(date[k]=='/') {date[k]=0;break;}
+                    }
 
                     printf("\"%s\" recovered to \"%s\"\n", curr->path, newPath);
                     sprintf(logpath, "%s : \"%s\" recovered to \"%s\"\n", date, curr->path, newPath);
@@ -415,7 +444,7 @@ int RecoverDir(char *path, char *newPath, int command_opt) {
                 RecoverDir(tmpPath, tnpPath, command_opt & (OPT_R|OPT_L));//D는 한번 시행 후 삭제
         }
     } else {
-        printf("%s", newPath);
+        //printf("%s", newPath);
         RecoverFile(path, newPath, command_opt);
     }
     return 0;
@@ -548,7 +577,9 @@ int RemoveFile(char *path, int commandopt) {
     if(commandopt & OPT_A){
         while(curr!=NULL){// 모든 백업 파일을 삭제하고 로그를 기록
             strcpy(date, curr->path + (strlen(backupPATH)) + 1);
-            date[strlen(date) - strlen(filename) - 1] = 0;
+            for(int k=0;k<strlen(date);k++){
+                if(date[k]=='/') {date[k]=0;break;}
+            }
 
             strcpy(file_backuppath, curr->path);
             file_backuppath[strlen(curr->path) - strlen(filename) - 1] = 0;//dir 이름
@@ -595,7 +626,9 @@ int RemoveFile(char *path, int commandopt) {
         }
         if (cnt < 3) remove(file_backuppath);
         strcpy(date, head->next->path + (strlen(backupPATH)) + 1);
-        date[strlen(date) - strlen(filename) - 1] = 0;
+        for(int k=0;k<strlen(date);k++){
+            if(date[k]=='/') {date[k]=0;break;}
+        }
         printf("\"%s\" removed by \"%s\"\n", head->next->path, originPath);
 
         sprintf(logpath, "%s : \"%s\" removed by \"%s\"\n", date, head->next->path, originPath);
@@ -648,7 +681,9 @@ int RemoveFile(char *path, int commandopt) {
                     }
                     if (cnt < 3) remove(file_backuppath);
                     strcpy(date, curr->path + (strlen(backupPATH)) + 1);//시간데이터 추출
-                    date[strlen(date) - strlen(filename) - 1] = 0;
+                    for(int k=0;k<strlen(date);k++){
+                        if(date[k]=='/') {date[k]=0;break;}
+                    }
 
                     printf("\"%s\" removed by \"%s\"\n", curr->path, originPath);
 
@@ -1069,8 +1104,8 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
                 fprintf(stderr, "ERROR: \'%s\' is not exist\n", parameter->filename);
                 return -1;
             }
-            if (strncmp(parameter->filename, homePATH, strlen(homePATH))
-                || !strcmp(parameter->filename, homePATH)) {// 사용자 디렉토리 내부의 경로인지 확인
+            if (strncmp(parameter->filename, HOMEPATH, strlen(homePATH))
+                || !strcmp(parameter->filename, HOMEPATH)) {// 사용자 디렉토리 내부의 경로인지 확인
                 fprintf(stderr, "ERROR: path must be in user directory\n - \'%s\' is not in user directory.\n",
                         parameter->filename);
                 return -1;
@@ -1188,9 +1223,9 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
                 return -1;
             }
 
-            if (strncmp(parameter->filename, homePATH, strlen(homePATH))
+            if (strncmp(parameter->filename, HOMEPATH, strlen(homePATH))
                 || !strncmp(parameter->filename, backupPATH, strlen(backupPATH))
-                || !strcmp(parameter->filename, homePATH)) {
+                || !strcmp(parameter->filename, HOMEPATH)) {
                 fprintf(stderr, "ERROR: %s can't be backuped\n", parameter->filename);
                 return -1;
             }
@@ -1206,9 +1241,9 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
                 return -1;
             }
             // 홈 디렉토리, 백업 디렉토리 내부의 파일 경로인지 확인
-            if (strncmp(parameter->filename, homePATH, strlen(homePATH))
+            if (strncmp(parameter->filename, HOMEPATH, strlen(homePATH))
                 || !strncmp(parameter->filename, backupPATH, strlen(backupPATH))
-                || !strcmp(parameter->filename, homePATH)) {
+                || !strcmp(parameter->filename, HOMEPATH)) {
                 fprintf(stderr, "ERROR: %s can't be backuped\n", parameter->filename);
                 return -1;
             }
@@ -1265,9 +1300,9 @@ int ParameterProcessing(int argcnt, char **arglist, int command, command_paramet
                         return -1;
                     }
                     // 새로운 파일명의 유효성 검사
-                    if (strncmp(parameter->tmpname, homePATH, strlen(homePATH))
+                    if (strncmp(parameter->tmpname, HOMEPATH, strlen(homePATH))
                         || !strncmp(parameter->tmpname, backupPATH, strlen(backupPATH))
-                        || !strcmp(parameter->tmpname, homePATH)) {
+                        || !strcmp(parameter->tmpname, HOMEPATH)) {
                         fprintf(stderr, "ERROR: %s can't be backuped\n", parameter->tmpname);
                         return -1;
                     }
@@ -1326,31 +1361,36 @@ int Prompt(int argcnt, char **arglist) {
 
     } else if (command & CMD_SYS) {// 'sys' 명령어 처리
         char treePATH[STRMAX]={0};
-        int treech=0;
-        if (argcnt == 2) {
-            ConvertPath(arglist[1],treePATH);
-            if(access(treePATH,F_OK)) return -1;//접근 불가능하면 종료
-            struct stat treebuf;
-            if (lstat(treePATH, &treebuf) < 0){
-                fprintf(stderr, "ERROR : lstat error for %s\n", treePATH);
-                return -1;
-            }
-            if(S_ISDIR(treebuf.st_mode)) chdir(treePATH);//디렉테러이면 이동
-            else if(S_ISREG(treebuf.st_mode)){//파일이면 출력
-                sprintf(treelist[treelistcnt++], "%s", treePATH);
-                printf("%3d. %s\n  >> ", treelistcnt - 1, treePATH);
-                treech=1;
-            }
-        }
-        else if(argcnt!=1) return -1;//인자의 개수가 범위 밖이면 종료
-        else strcpy(treePATH, homePATH);
-        if(!treech) {//디렉터리이거나 인자가 없었을 때 실행
-            chdir(backupPATH);
-            sprintf(treelist[treelistcnt++], "%s", treePATH);
-            printf("%3d. %s\n", treelistcnt - 1, treePATH);
-            list_tree(1, treePATH);//트리 출력
-            chdir(homePATH);//다시 돌아오기
-        }
+        char treepath[STRMAX]={0};
+        chdir("/home/backup/tree");//todo :path할당해주면됌
+        list_tree(1,treePATH);
+        RemoveDirch("/home/backup/tree");
+//        char treePATH[STRMAX]={0};
+//        int treech=0;
+//        if (argcnt == 2) {
+//            ConvertPath(arglist[1],treePATH);
+//            if(access(treePATH,F_OK)) return -1;//접근 불가능하면 종료
+//            struct stat treebuf;
+//            if (lstat(treePATH, &treebuf) < 0){
+//                fprintf(stderr, "ERROR : lstat error for %s\n", treePATH);
+//                return -1;
+//            }
+//            if(S_ISDIR(treebuf.st_mode)) chdir(treePATH);//디렉테러이면 이동
+//            else if(S_ISREG(treebuf.st_mode)){//파일이면 출력
+//                sprintf(treelist[treelistcnt++], "%s", treePATH);
+//                printf("%3d. %s\n  >> ", treelistcnt - 1, treePATH);
+//                treech=1;
+//            }
+//        }
+//        else if(argcnt!=1) return -1;//인자의 개수가 범위 밖이면 종료
+//        else strcpy(treePATH, backupPATH);
+//        if(!treech) {//디렉터리이거나 인자가 없었을 때 실행
+//            chdir(treePATH);
+//            sprintf(treelist[treelistcnt++], "%s", treePATH);
+//            printf("%3d. %s\n", treelistcnt - 1, treePATH);
+//            list_tree(1, treePATH);//트리 출력
+//            chdir(homePATH);//다시 돌아오기
+//        }
         for (int i = 0;; i++) {
             scanf("%s", input[i]);
             a = getchar();
@@ -1402,9 +1442,10 @@ int Prompt(int argcnt, char **arglist) {
 void Init() {
     backuplist = (timeList *) malloc(sizeof(timeList));
     // 실행 파일의 경로 및 홈 디렉토리 경로 설정
+    strcpy(HOMEPATH, "/home");
     getcwd(exePATH, PATHMAX);
     strcpy(homePATH, getenv("HOME"));
-    snprintf(backupPATH,strlen(homePATH)+8, "%s/backup", homePATH);// 백업 디렉토리 경로 설정
+    snprintf(backupPATH,strlen(HOMEPATH)+8, "%s/backup", HOMEPATH);// 백업 디렉토리 경로 설정
     snprintf(ssubak,strlen(backupPATH)+12, "%s/ssubak.log",backupPATH);// 백업 로그 파일 경로 설정
 
     if (access(backupPATH, F_OK))// 백업 디렉토리가 존재하지 않을 경우 생성
@@ -1422,6 +1463,7 @@ void Init() {
 
 int main(int argc, char *argv[]) {
     Init();
+    treemake();
     if (!strcmp(argv[0], "command")) {// "command"로 프로그램이 실행되었을 때
         hash = atoi(argv[1]);
 
@@ -1436,6 +1478,6 @@ int main(int argc, char *argv[]) {
     hash = HASH_MD5;// 해시값 설정
 
     Prompt(argc - 1, argv + 1); // 프롬프트 함수 호출
-
+    RemoveDirch("/home/backup/tree");
     exit(0);
 }
