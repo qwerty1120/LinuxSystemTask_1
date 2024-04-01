@@ -52,7 +52,7 @@ void list_tree(int height, char *isLastDir) {//list명령어에서 tree 출력�
         break;
     }
     for (i = 0; i < count; i++) {
-        if (!strcmp(".", namelist[i]->d_name) || !strcmp("..", namelist[i]->d_name)) {
+        if (!strcmp(".", namelist[i]->d_name) || !strcmp("..", namelist[i]->d_name)) {//현재나 위쪽 디렉터리 넘기기
             free(namelist[i]);
             continue;
         }
@@ -76,7 +76,6 @@ void list_tree(int height, char *isLastDir) {//list명령어에서 tree 출력�
             printf("└─ %s\n", namelist[i]->d_name);
             isLastDir[height] = 1;
         }
-
         sprintf(treelist[treelistcnt++], "%s/%s", treePATH, namelist[i]->d_name);
         if (S_ISDIR(statbuf.st_mode)) {   //디렉토리라면
             chdir(namelist[i]->d_name); //작업디렉토리 이동
@@ -1376,7 +1375,9 @@ int Prompt(int argcnt, char **arglist) {
             ConvertPath(arglist[1],treebuf);
             sprintf(treePATH, "%s/tree/%s", backupPATH, treebuf+strlen(HOMEPATH)+1);
 
-            if(access(treePATH,F_OK)) return -1;//접근 불가능하면 종료
+            if(access(treePATH,F_OK)) {
+                fprintf(stderr, "Backup Directory of %s is empty.\n", treebuf);
+                return -1;}//접근 불가능하면 종료
             struct stat treestat;
             if (lstat(treePATH, &treestat) < 0){
                 fprintf(stderr, "ERROR : lstat error\n");
@@ -1390,7 +1391,13 @@ int Prompt(int argcnt, char **arglist) {
             }
         }
         else if(argcnt!=1) return -1;//인자의 개수가 범위 밖이면 종료
-        else sprintf(treePATH, "/home/backup/tree/%s", exePATH+strlen(HOMEPATH)+1);
+        else {
+            sprintf(treePATH, "%s/tree/%s", backupPATH, treebuf + strlen(HOMEPATH) + 1);
+            if(access(treePATH,F_OK)) {
+                fprintf(stderr, "Backup Directory is empty.\n");
+                return -1;
+            }//접근 불가능하면 종료
+        }
         if(!treech) {//디렉터리이거나 인자가 없었을 때 실행
             chdir(treePATH);
             sprintf(treelist[treelistcnt++], "%s", treebuf);

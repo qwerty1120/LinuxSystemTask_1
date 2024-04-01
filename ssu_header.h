@@ -53,7 +53,7 @@ char ssubak[PATHMAX];
 char recurPATH[PATHMAX];
 char N_path[PATHMAX];
 int hash, recursion;
-int treecnt, treelistcnt;
+int treecnt, treelistcnt, treeDir;
 
 
 char *commanddata[10] = {
