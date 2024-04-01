@@ -29,12 +29,16 @@ void treemake(){
     }
 }
 void list_tree(int height, char *isLastDir) {//list명령어에서 tree 출력하기
-    char treePATH[STRMAX];
+    char *treePATH = (char*)malloc(sizeof(char)*PATHMAX);
+    char *treebuf = (char*)malloc(sizeof(char)*PATHMAX);
     struct dirent **namelist;
     int i, count, lastIdx, firstidx = 0;
     struct stat statbuf;
 
     getcwd(treePATH, PATHMAX);//현재 디렉터리 받아오기
+    sprintf(treebuf, "%s", treePATH+strlen(backupPATH)+5);
+
+    sprintf(treePATH, "/home%s", treebuf);
     if ((count = scandir(".", &namelist, NULL, alphasort)) == -1) {
         return;
     }
@@ -765,6 +769,9 @@ int RemoveDirch(char *path){
         }// 디렉터리 내에 더 이상 항목이 없는 경우 디렉터리 삭제
         if(cnt<3)remove(path);
     }
+    else if(treeDir){
+        remove(path);
+    }
     return 0;
 }
 int RemoveCommand(command_parameter *parameter) {
@@ -1360,37 +1367,40 @@ int Prompt(int argcnt, char **arglist) {
         CommandExec(parameter);
 
     } else if (command & CMD_SYS) {// 'sys' 명령어 처리
-        char treePATH[STRMAX]={0};
-        char treepath[STRMAX]={0};
-        chdir("/home/backup/tree");//todo :path할당해주면됌
-        list_tree(1,treePATH);
+        char *treePATH=(char *)malloc(sizeof(char)*PATHMAX);
+        char *treebuf = (char *)malloc(sizeof(char)*PATHMAX);
+        char *treepath=(char *)malloc(sizeof(char)*PATHMAX);
+        strcpy(treebuf,exePATH);
+        int treech=0;
+        if (argcnt == 2) {
+            ConvertPath(arglist[1],treebuf);
+            sprintf(treePATH, "%s/tree/%s", backupPATH, treebuf+strlen(HOMEPATH)+1);
+
+            if(access(treePATH,F_OK)) return -1;//접근 불가능하면 종료
+            struct stat treestat;
+            if (lstat(treePATH, &treestat) < 0){
+                fprintf(stderr, "ERROR : lstat error\n");
+                return -1;
+            }
+            if(S_ISDIR(treestat.st_mode)) ;//chdir(treePATH);//디렉테러이면 이동
+            else if(S_ISREG(treestat.st_mode)){//파일이면 출력
+                sprintf(treelist[treelistcnt++], "%s", treebuf);
+                printf("%3d. %s\n  >> ", treelistcnt - 1, treebuf);
+                treech=1;
+            }
+        }
+        else if(argcnt!=1) return -1;//인자의 개수가 범위 밖이면 종료
+        else sprintf(treePATH, "/home/backup/tree/%s", exePATH+strlen(HOMEPATH)+1);
+        if(!treech) {//디렉터리이거나 인자가 없었을 때 실행
+            chdir(treePATH);
+            sprintf(treelist[treelistcnt++], "%s", treebuf);
+            printf("%3d. %s\n", treelistcnt - 1, treebuf);
+            list_tree(1, treePATH);//트리 출력
+            chdir(homePATH);//다시 돌아오기
+        }
+        treeDir=1;
         RemoveDirch("/home/backup/tree");
-//        char treePATH[STRMAX]={0};
-//        int treech=0;
-//        if (argcnt == 2) {
-//            ConvertPath(arglist[1],treePATH);
-//            if(access(treePATH,F_OK)) return -1;//접근 불가능하면 종료
-//            struct stat treebuf;
-//            if (lstat(treePATH, &treebuf) < 0){
-//                fprintf(stderr, "ERROR : lstat error for %s\n", treePATH);
-//                return -1;
-//            }
-//            if(S_ISDIR(treebuf.st_mode)) chdir(treePATH);//디렉테러이면 이동
-//            else if(S_ISREG(treebuf.st_mode)){//파일이면 출력
-//                sprintf(treelist[treelistcnt++], "%s", treePATH);
-//                printf("%3d. %s\n  >> ", treelistcnt - 1, treePATH);
-//                treech=1;
-//            }
-//        }
-//        else if(argcnt!=1) return -1;//인자의 개수가 범위 밖이면 종료
-//        else strcpy(treePATH, backupPATH);
-//        if(!treech) {//디렉터리이거나 인자가 없었을 때 실행
-//            chdir(treePATH);
-//            sprintf(treelist[treelistcnt++], "%s", treePATH);
-//            printf("%3d. %s\n", treelistcnt - 1, treePATH);
-//            list_tree(1, treePATH);//트리 출력
-//            chdir(homePATH);//다시 돌아오기
-//        }
+        treeDir=0;
         for (int i = 0;; i++) {
             scanf("%s", input[i]);
             a = getchar();
